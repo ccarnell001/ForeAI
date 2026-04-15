@@ -67,7 +67,7 @@ ${notes ? `Student notes: ${notes}` : ''}
 The frames are in chronological order showing the swing sequence. Provide a thorough, encouraging analysis with specific actionable feedback. Return ONLY valid JSON matching the specified structure.`;
 
   const response = await client.messages.create({
-    model: 'claude-opus-4-5',
+    model: 'claude-sonnet-4-5-20250929',
     max_tokens: 4000,
     system: SYSTEM_PROMPT,
     messages: [
