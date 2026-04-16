@@ -351,15 +351,6 @@ export default function AnalyzePage() {
   );
 }
 
-function SummaryRow({ label, value, done, required }) {
-  return (
-    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: 13, padding: '5px 0', borderBottom: '1px solid #f0f2f0' }}>
-      <span style={{ color: '#6b7a6b' }}>{label}{required && <span style={{ color: '#dc2626', marginLeft: 2 }}>*</span>}</span>
-      <span style={{ fontWeight: 500, color: done ? '#16a34a' : '#9ca39c' }}>{done ? '✓ ' : ''}{value}</span>
-    </div>
-  );
-}
-
 const card = { background: '#fff', borderRadius: 14, padding: 20, border: '1px solid #e5e9e5' };
 const stepNum = { width: 28, height: 28, borderRadius: '50%', background: '#0a1a0a', color: '#4ade80', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 13, fontWeight: 700, flexShrink: 0 };
 const stepHeader = { display: 'flex', alignItems: 'center', gap: 12, marginBottom: 16 };
