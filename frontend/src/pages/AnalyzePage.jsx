@@ -1,4 +1,5 @@
-import { useState, useRef, useCallback } from 'react';
+import { useState, useRef, useCallback, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../components/AuthContext.jsx';
 import { api } from '../api/index.js';
 import AnalysisReport from '../components/AnalysisReport.jsx';
@@ -7,6 +8,7 @@ const CLUBS = ['Driver', '3-Wood', '5-Wood', 'Hybrid', '3-Iron', '4-Iron', '5-Ir
 
 export default function AnalyzePage() {
   const { user, logout } = useAuth();
+  const navigate = useNavigate();
   const [video, setVideo] = useState(null);
   const [videoUrl, setVideoUrl] = useState('');
   const [frames, setFrames] = useState([]);
@@ -21,18 +23,53 @@ export default function AnalyzePage() {
   const videoRef = useRef(null);
   const canvasRef = useRef(null);
 
+  async function autoExtract(videoElement) {
+    const vid = videoElement || videoRef.current;
+    if (!vid) return;
+    setExtracting(true);
+    setFrames([]);
+    setError('');
+    const duration = vid.duration;
+    const count = 8;
+    const times = [];
+    for (let i = 0; i < count; i++) {
+      times.push((duration / (count - 1)) * i);
+    }
+    const captured = [];
+    for (const t of times) {
+      await new Promise((res) => {
+        vid.currentTime = t;
+        vid.onseeked = () => {
+          const canvas = canvasRef.current;
+          if (!canvas) { res(); return; }
+          canvas.width = vid.videoWidth;
+          canvas.height = vid.videoHeight;
+          const ctx = canvas.getContext('2d');
+          ctx.drawImage(vid, 0, 0);
+          const dataUrl = canvas.toDataURL('image/jpeg', 0.85);
+          captured.push({ data: dataUrl.split(',')[1], thumb: canvas.toDataURL('image/jpeg', 0.3), time: t });
+          res();
+        };
+      });
+    }
+    setFrames(captured);
+    setExtracting(false);
+  }
+
   function handleVideoUpload(e) {
     const file = e.target.files[0];
     if (!file) return;
-    if (file.size > 100 * 1024 * 1024) {
-      setError('Video must be under 100MB');
-      return;
-    }
+    if (file.size > 100 * 1024 * 1024) { setError('Video must be under 100MB'); return; }
     setVideo(file);
-    setVideoUrl(URL.createObjectURL(file));
+    const url = URL.createObjectURL(file);
+    setVideoUrl(url);
     setFrames([]);
     setReport(null);
     setError('');
+  }
+
+  function handleVideoLoaded() {
+    autoExtract(videoRef.current);
   }
 
   const captureFrame = useCallback(() => {
@@ -53,44 +90,12 @@ export default function AnalyzePage() {
     });
   }, []);
 
-  async function autoExtract() {
-    const vid = videoRef.current;
-    if (!vid) return;
-    setExtracting(true);
-    setFrames([]);
-    setError('');
-    const duration = vid.duration;
-    const count = Math.min(8, Math.floor(duration / 0.1));
-    const times = [];
-    for (let i = 0; i < count; i++) {
-      times.push((duration / (count - 1)) * i);
-    }
-    const captured = [];
-    for (const t of times) {
-      await new Promise((res) => {
-        vid.currentTime = t;
-        vid.onseeked = () => {
-          const canvas = canvasRef.current;
-          canvas.width = vid.videoWidth;
-          canvas.height = vid.videoHeight;
-          const ctx = canvas.getContext('2d');
-          ctx.drawImage(vid, 0, 0);
-          const dataUrl = canvas.toDataURL('image/jpeg', 0.85);
-          captured.push({ data: dataUrl.split(',')[1], thumb: canvas.toDataURL('image/jpeg', 0.3), time: t });
-          res();
-        };
-      });
-    }
-    setFrames(captured);
-    setExtracting(false);
-  }
-
   function removeFrame(i) {
     setFrames((f) => f.filter((_, idx) => idx !== i));
   }
 
   async function runAnalysis() {
-    if (frames.length === 0) { setError('Capture at least 1 frame first'); return; }
+    if (frames.length === 0) { setError('Please wait for frames to finish extracting'); return; }
     setAnalyzing(true);
     setError('');
     try {
@@ -118,52 +123,50 @@ export default function AnalyzePage() {
     <div style={s.page}>
       <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@300;400;500&family=Playfair+Display:ital,wght@0,700;1,400&display=swap" rel="stylesheet" />
 
-      {/* Nav */}
       <nav style={s.nav}>
         <div style={s.logo}>Fore<span style={{ color: '#4ade80', fontStyle: 'italic' }}>AI</span></div>
         <div style={{ display: 'flex', alignItems: 'center', gap: 20 }}>
           <span style={{ fontSize: 13, color: '#6b7a6b' }}>Hey, {user.name.split(' ')[0]} 👋</span>
-          <a href="/history" style={s.navLink}>History</a>
-          <button onClick={logout} style={s.navBtn}>Sign out</button>
+          <button onClick={() => navigate('/history')} style={s.navLink}>History</button>
+          <button onClick={logout} style={{ ...s.navLink, color: '#dc2626' }}>Sign out</button>
         </div>
       </nav>
 
       <div style={s.container}>
         <div style={s.header}>
           <h1 style={s.title}>Analyze your swing</h1>
-          <p style={s.subtitle}>Upload a video, extract key frames, and get AI coaching in seconds.</p>
+          <p style={s.subtitle}>Upload your swing video — we'll automatically extract key frames and get you AI coaching in seconds.</p>
         </div>
 
         <div style={s.grid}>
           {/* Left: Video + settings */}
           <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
-
-            {/* Upload */}
             <div style={s.card}>
               <div style={s.cardLabel}>1. Upload your swing video</div>
               {!videoUrl ? (
                 <label style={s.dropzone}>
                   <input type="file" accept="video/*" onChange={handleVideoUpload} style={{ display: 'none' }} />
-                  <div style={{ fontSize: 32, marginBottom: 12 }}>🎬</div>
-                  <div style={{ fontWeight: 500, marginBottom: 4, color: '#0a1a0a' }}>Drop video here or click to browse</div>
-                  <div style={{ fontSize: 12, color: '#9ca39c' }}>MP4, MOV, AVI — max 100MB · film face-on or down-the-line</div>
+                  <div style={{ fontSize: 40, marginBottom: 12 }}>🎬</div>
+                  <div style={{ fontWeight: 500, marginBottom: 6, color: '#0a1a0a', fontSize: 16 }}>Drop video here or click to browse</div>
+                  <div style={{ fontSize: 13, color: '#9ca39c', marginBottom: 4 }}>MP4, MOV, AVI — max 100MB</div>
+                  <div style={{ fontSize: 12, color: '#b0b8b0' }}>Frames are extracted automatically — just upload and go!</div>
                 </label>
               ) : (
                 <div>
-                  <video ref={videoRef} src={videoUrl} controls style={{ width: '100%', borderRadius: 8, background: '#000' }} />
+                  <video ref={videoRef} src={videoUrl} controls onLoadedMetadata={handleVideoLoaded}
+                    style={{ width: '100%', borderRadius: 8, background: '#000' }} />
                   <canvas ref={canvasRef} style={{ display: 'none' }} />
-                  <div style={{ display: 'flex', gap: 8, marginTop: 12 }}>
-                    <button onClick={autoExtract} disabled={extracting} style={s.btnPrimary}>
-                      {extracting ? 'Extracting...' : '⚡ Auto-extract 8 frames'}
+                  <div style={{ display: 'flex', gap: 8, marginTop: 12, flexWrap: 'wrap' }}>
+                    <button onClick={() => autoExtract()} disabled={extracting} style={s.btnPrimary}>
+                      {extracting ? '⏳ Extracting...' : '⚡ Re-extract frames'}
                     </button>
-                    <button onClick={captureFrame} style={s.btnSecondary}>+ Capture frame</button>
+                    <button onClick={captureFrame} style={s.btnSecondary}>+ Capture frame manually</button>
                     <button onClick={() => { setVideo(null); setVideoUrl(''); setFrames([]); }} style={s.btnGhost}>Change video</button>
                   </div>
                 </div>
               )}
             </div>
 
-            {/* Settings */}
             <div style={s.card}>
               <div style={s.cardLabel}>2. Session details</div>
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
@@ -195,15 +198,22 @@ export default function AnalyzePage() {
           <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
             <div style={s.card}>
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
-                <div style={s.cardLabel}>3. Review frames ({frames.length}/12)</div>
-                {frames.length > 0 && (
+                <div style={s.cardLabel}>
+                  {extracting ? '⏳ Auto-extracting frames...' : `3. Review frames (${frames.length}/12)`}
+                </div>
+                {frames.length > 0 && !extracting && (
                   <button onClick={() => setFrames([])} style={s.btnGhost}>Clear all</button>
                 )}
               </div>
 
-              {frames.length === 0 ? (
+              {extracting ? (
                 <div style={{ textAlign: 'center', padding: '40px 20px', color: '#9ca39c', fontSize: 14 }}>
-                  {videoUrl ? 'Click "Auto-extract" or scrub the video and capture frames manually' : 'Upload a video to get started'}
+                  <div style={{ fontSize: 32, marginBottom: 12 }}>🎞️</div>
+                  Extracting 8 key frames from your swing...
+                </div>
+              ) : frames.length === 0 ? (
+                <div style={{ textAlign: 'center', padding: '40px 20px', color: '#9ca39c', fontSize: 14 }}>
+                  {videoUrl ? 'Processing your video...' : 'Upload a video and frames will appear here automatically'}
                 </div>
               ) : (
                 <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 8 }}>
@@ -230,14 +240,14 @@ export default function AnalyzePage() {
               </div>
             )}
 
-            <button onClick={runAnalysis} disabled={analyzing || frames.length === 0} style={{
-              padding: '16px', background: analyzing || frames.length === 0 ? '#d1d5d1' : '#0a1a0a',
-              color: analyzing || frames.length === 0 ? '#9ca39c' : '#fff',
+            <button onClick={runAnalysis} disabled={analyzing || frames.length === 0 || extracting} style={{
+              padding: '16px', background: analyzing || frames.length === 0 || extracting ? '#d1d5d1' : '#0a1a0a',
+              color: analyzing || frames.length === 0 || extracting ? '#9ca39c' : '#fff',
               border: 'none', borderRadius: 12, fontSize: 16, fontWeight: 500,
-              cursor: analyzing || frames.length === 0 ? 'not-allowed' : 'pointer',
+              cursor: analyzing || frames.length === 0 || extracting ? 'not-allowed' : 'pointer',
               fontFamily: "'DM Sans', sans-serif", transition: 'all 0.2s',
             }}>
-              {analyzing ? '🤖 ForeAI is analyzing your swing...' : `🏌️ Analyze ${frames.length > 0 ? frames.length + ' frames' : 'swing'} →`}
+              {analyzing ? '🤖 ForeAI is analyzing your swing...' : extracting ? '⏳ Extracting frames...' : `🏌️ Analyze ${frames.length > 0 ? frames.length + ' frames' : 'swing'} →`}
             </button>
 
             {analyzing && (
@@ -256,8 +266,7 @@ const styles = {
   page: { minHeight: '100vh', background: '#f4f7f4', fontFamily: "'DM Sans', sans-serif" },
   nav: { background: '#fff', borderBottom: '1px solid #e5e9e5', padding: '0 32px', height: 60, display: 'flex', alignItems: 'center', justifyContent: 'space-between' },
   logo: { fontSize: 22, fontFamily: "'Playfair Display', serif", color: '#0a1a0a', fontWeight: 700 },
-  navLink: { fontSize: 13, color: '#374237', textDecoration: 'none', fontWeight: 500 },
-  navBtn: { fontSize: 13, color: '#6b7a6b', background: 'none', border: 'none', cursor: 'pointer', fontFamily: "'DM Sans', sans-serif" },
+  navLink: { fontSize: 13, color: '#374237', background: 'none', border: 'none', cursor: 'pointer', fontFamily: "'DM Sans', sans-serif", fontWeight: 500 },
   container: { maxWidth: 1100, margin: '0 auto', padding: '40px 24px' },
   header: { marginBottom: 32 },
   title: { fontSize: 32, fontFamily: "'Playfair Display', serif", fontWeight: 700, color: '#0a1a0a', margin: '0 0 8px' },
@@ -265,7 +274,7 @@ const styles = {
   grid: { display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 24 },
   card: { background: '#fff', borderRadius: 14, padding: '24px', border: '1px solid #e5e9e5' },
   cardLabel: { fontSize: 11, fontWeight: 500, letterSpacing: '0.1em', textTransform: 'uppercase', color: '#9ca39c', marginBottom: 16 },
-  dropzone: { display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', border: '2px dashed #d1d5d1', borderRadius: 12, padding: '40px 20px', cursor: 'pointer', textAlign: 'center', transition: 'border-color 0.2s' },
+  dropzone: { display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', border: '2px dashed #d1d5d1', borderRadius: 12, padding: '48px 20px', cursor: 'pointer', textAlign: 'center' },
   label: { display: 'block', fontSize: 12, fontWeight: 500, color: '#374237', marginBottom: 6, letterSpacing: '0.03em', textTransform: 'uppercase' },
   select: { width: '100%', padding: '10px 12px', border: '1.5px solid #d1d5d1', borderRadius: 8, fontSize: 14, color: '#0a1a0a', background: '#fff', boxSizing: 'border-box', fontFamily: "'DM Sans', sans-serif", outline: 'none' },
   btnPrimary: { padding: '9px 16px', background: '#16a34a', color: '#fff', border: 'none', borderRadius: 8, fontSize: 13, fontWeight: 500, cursor: 'pointer', fontFamily: "'DM Sans', sans-serif" },

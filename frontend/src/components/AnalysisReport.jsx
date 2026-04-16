@@ -1,9 +1,11 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { useAuth } from './AuthContext.jsx';
 
 export default function AnalysisReport({ report, quota, onNewAnalysis, userName }) {
   const [activePhase, setActivePhase] = useState(0);
   const navigate = useNavigate();
+  const { logout } = useAuth();
   const score = report.overallScore;
   const scoreColor = score >= 75 ? '#16a34a' : score >= 55 ? '#d97706' : '#dc2626';
 
@@ -12,15 +14,18 @@ export default function AnalysisReport({ report, quota, onNewAnalysis, userName 
       <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@300;400;500&family=Playfair+Display:ital,wght@0,700;1,400&display=swap" rel="stylesheet" />
 
       <nav style={s.nav}>
-        <div style={s.logo}>Fore<span style={{ color: '#4ade80', fontStyle: 'italic' }}>AI</span></div>
-        <div style={{ display: 'flex', gap: 12 }}>
-          <button onClick={() => navigate('/history')} style={s.navBtn}>View history</button>
+        <div style={{ ...s.logo, cursor: 'pointer' }} onClick={() => navigate('/analyze')}>
+          Fore<span style={{ color: '#4ade80', fontStyle: 'italic' }}>AI</span>
+        </div>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 16 }}>
+          <span style={{ fontSize: 13, color: '#6b7a6b' }}>Hey, {userName?.split(' ')[0]} 👋</span>
+          <button onClick={() => navigate('/history')} style={s.navBtn}>History</button>
           <button onClick={onNewAnalysis} style={s.navBtnPrimary}>+ New analysis</button>
+          <button onClick={logout} style={s.navBtnLogout}>Sign out</button>
         </div>
       </nav>
 
       <div style={s.container}>
-        {/* Hero score */}
         <div style={s.heroCard}>
           <div style={{ flex: 1 }}>
             <div style={{ fontSize: 11, letterSpacing: '0.15em', textTransform: 'uppercase', color: '#9ca39c', marginBottom: 8 }}>
@@ -52,7 +57,6 @@ export default function AnalysisReport({ report, quota, onNewAnalysis, userName 
         </div>
 
         <div style={s.twoCol}>
-          {/* Left: Phase breakdown */}
           <div>
             <h2 style={s.sectionTitle}>Swing phases</h2>
             <div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginBottom: 24 }}>
@@ -98,7 +102,6 @@ export default function AnalysisReport({ report, quota, onNewAnalysis, userName 
             )}
           </div>
 
-          {/* Right: Top priorities + drills */}
           <div>
             <h2 style={s.sectionTitle}>Your top priorities</h2>
             <div style={{ display: 'flex', flexDirection: 'column', gap: 16, marginBottom: 24 }}>
@@ -118,10 +121,9 @@ export default function AnalysisReport({ report, quota, onNewAnalysis, userName 
                         <div style={{ fontSize: 13, color: '#374237', lineHeight: 1.6 }}>{p.drillDescription}</div>
                       </div>
                       {p.youtubeSearch && (
-                        <a
-                          href={`https://www.youtube.com/results?search_query=${encodeURIComponent(p.youtubeSearch)}`}
+                        <a href={`https://www.youtube.com/results?search_query=${encodeURIComponent(p.youtubeSearch)}`}
                           target="_blank" rel="noopener noreferrer"
-                          style={{ fontSize: 12, color: '#dc2626', fontWeight: 500, textDecoration: 'none', display: 'inline-flex', alignItems: 'center', gap: 4 }}>
+                          style={{ fontSize: 12, color: '#dc2626', fontWeight: 500, textDecoration: 'none' }}>
                           ▶ Watch on YouTube →
                         </a>
                       )}
@@ -164,6 +166,7 @@ const s = {
   logo: { fontSize: 22, fontFamily: "'Playfair Display', serif", color: '#0a1a0a', fontWeight: 700 },
   navBtn: { fontSize: 13, color: '#6b7a6b', background: 'none', border: 'none', cursor: 'pointer', fontFamily: "'DM Sans', sans-serif" },
   navBtnPrimary: { fontSize: 13, background: '#0a1a0a', color: '#fff', border: 'none', borderRadius: 8, padding: '8px 16px', cursor: 'pointer', fontFamily: "'DM Sans', sans-serif", fontWeight: 500 },
+  navBtnLogout: { fontSize: 13, color: '#dc2626', background: 'none', border: 'none', cursor: 'pointer', fontFamily: "'DM Sans', sans-serif" },
   container: { maxWidth: 1100, margin: '0 auto', padding: '40px 24px' },
   heroCard: { background: '#fff', borderRadius: 16, padding: '32px', border: '1px solid #e5e9e5', marginBottom: 32, display: 'flex', justifyContent: 'space-between', gap: 32, alignItems: 'flex-start' },
   twoCol: { display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 32 },
