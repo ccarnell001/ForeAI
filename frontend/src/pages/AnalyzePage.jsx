@@ -211,7 +211,7 @@ export default function AnalyzePage() {
 
       {/* Nav */}
       <nav style={{ background: '#fff', borderBottom: '1px solid #e5e9e5', padding: '0 20px', height: 56, display: 'flex', alignItems: 'center', justifyContent: 'space-between', position: 'sticky', top: 0, zIndex: 100 }}>
-        <div style={{ fontSize: 22, fontFamily: "'Playfair Display', serif", color: '#0a1a0a', fontWeight: 700 }}>
+        <div onClick={() => navigate('/analyze')} style={{ fontSize: 22, fontFamily: "'Playfair Display', serif", color: '#0a1a0a', fontWeight: 700, cursor: 'pointer' }}>
           Fore<span style={{ color: '#4ade80', fontStyle: 'italic' }}>AI</span>
         </div>
         <div style={{ display: 'flex', alignItems: 'center', gap: 16 }}>
