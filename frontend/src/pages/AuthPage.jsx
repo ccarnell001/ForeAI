@@ -36,24 +36,24 @@ export default function AuthPage() {
   return (
     <div style={{ minHeight: '100vh', display: 'flex', fontFamily: "'DM Sans', sans-serif" }}>
       <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@300;400;500&family=Playfair+Display:ital,wght@0,700;1,400&display=swap" rel="stylesheet" />
+      <style>{`
+        @media (max-width: 768px) {
+          .auth-left { display: none !important; }
+          .auth-right { width: 100% !important; padding: 40px 24px !important; }
+        }
+      `}</style>
 
-      {/* Left panel */}
-      <div style={{
+      {/* Left panel - hidden on mobile */}
+      <div className="auth-left" style={{
         flex: 1, background: '#0a0f0a', display: 'flex', flexDirection: 'column',
-        justifyContent: 'center', alignItems: 'center', padding: '3rem',
-        position: 'relative', overflow: 'hidden',
+        justifyContent: 'center', alignItems: 'center', padding: '3rem', position: 'relative', overflow: 'hidden',
       }}>
-        <div style={{
-          position: 'absolute', inset: 0, opacity: 0.04,
-          backgroundImage: 'repeating-linear-gradient(0deg, transparent, transparent 40px, #4ade80 40px, #4ade80 41px), repeating-linear-gradient(90deg, transparent, transparent 40px, #4ade80 40px, #4ade80 41px)',
-        }} />
+        <div style={{ position: 'absolute', inset: 0, opacity: 0.04, backgroundImage: 'repeating-linear-gradient(0deg, transparent, transparent 40px, #4ade80 40px, #4ade80 41px), repeating-linear-gradient(90deg, transparent, transparent 40px, #4ade80 40px, #4ade80 41px)' }} />
         <div style={{ position: 'relative', textAlign: 'center', maxWidth: 420 }}>
           <div style={{ fontSize: 56, fontFamily: "'Playfair Display', serif", color: '#f0fdf0', lineHeight: 1, marginBottom: 8 }}>
             Fore<span style={{ color: '#4ade80', fontStyle: 'italic' }}>AI</span>
           </div>
-          <div style={{ color: '#4ade80', fontSize: 11, letterSpacing: '0.25em', textTransform: 'uppercase', marginBottom: 48 }}>
-            AI Swing Coach
-          </div>
+          <div style={{ color: '#4ade80', fontSize: 11, letterSpacing: '0.25em', textTransform: 'uppercase', marginBottom: 48 }}>AI Swing Coach</div>
           <div style={{ color: '#6b7a6b', fontSize: 15, lineHeight: 1.8, marginBottom: 48 }}>
             Upload your swing. Get frame-by-frame AI coaching. Discover exactly what's holding your game back.
           </div>
@@ -76,11 +76,18 @@ export default function AuthPage() {
       </div>
 
       {/* Right panel - form */}
-      <div style={{
-        width: 480, background: '#f9faf9', display: 'flex', flexDirection: 'column',
-        justifyContent: 'center', padding: '3rem',
-      }}>
-        <div style={{ marginBottom: 40 }}>
+      <div className="auth-right" style={{ width: 480, background: '#f9faf9', display: 'flex', flexDirection: 'column', justifyContent: 'center', padding: '3rem' }}>
+
+        {/* Mobile logo - only shows on mobile */}
+        <div style={{ textAlign: 'center', marginBottom: 32, display: 'none' }} className="mobile-logo">
+          <div style={{ fontSize: 40, fontFamily: "'Playfair Display', serif", color: '#0a1a0a', fontWeight: 700 }}>
+            Fore<span style={{ color: '#16a34a', fontStyle: 'italic' }}>AI</span>
+          </div>
+          <div style={{ fontSize: 11, letterSpacing: '0.2em', textTransform: 'uppercase', color: '#9ca39c', marginTop: 4 }}>AI Swing Coach</div>
+        </div>
+        <style>{`@media (max-width: 768px) { .mobile-logo { display: block !important; } }`}</style>
+
+        <div style={{ marginBottom: 32 }}>
           <h1 style={{ fontSize: 28, fontFamily: "'Playfair Display', serif", fontWeight: 700, color: '#0a1a0a', margin: '0 0 8px' }}>
             {mode === 'login' ? 'Welcome back' : 'Create your account'}
           </h1>
@@ -90,14 +97,10 @@ export default function AuthPage() {
         </div>
 
         <form onSubmit={submit} style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
-          {mode === 'register' && (
-            <Field label="Your name" name="name" value={form.name} onChange={update} placeholder="Tiger (just kidding, anyone's welcome)" />
-          )}
+          {mode === 'register' && <Field label="Your name" name="name" value={form.name} onChange={update} placeholder="Tiger (just kidding, anyone's welcome)" />}
           <Field label="Email address" name="email" type="email" value={form.email} onChange={update} placeholder="you@example.com" />
           <Field label="Password" name="password" type="password" value={form.password} onChange={update} placeholder={mode === 'register' ? 'At least 8 characters' : '••••••••'} />
-          {mode === 'register' && (
-            <Field label="Handicap (optional)" name="handicap" value={form.handicap} onChange={update} placeholder="e.g. 12.4" />
-          )}
+          {mode === 'register' && <Field label="Handicap (optional)" name="handicap" value={form.handicap} onChange={update} placeholder="e.g. 12.4" />}
 
           {error && (
             <div style={{ background: '#fef2f2', border: '1px solid #fecaca', borderRadius: 8, padding: '10px 14px', fontSize: 13, color: '#dc2626' }}>
@@ -106,10 +109,9 @@ export default function AuthPage() {
           )}
 
           <button type="submit" disabled={loading} style={{
-            marginTop: 8, padding: '14px', background: loading ? '#6b7a6b' : '#0a1a0a',
+            marginTop: 8, padding: 14, background: loading ? '#6b7a6b' : '#0a1a0a',
             color: '#fff', border: 'none', borderRadius: 10, fontSize: 15, fontWeight: 500,
-            cursor: loading ? 'not-allowed' : 'pointer', transition: 'background 0.2s',
-            fontFamily: "'DM Sans', sans-serif",
+            cursor: loading ? 'not-allowed' : 'pointer', fontFamily: "'DM Sans', sans-serif",
           }}>
             {loading ? 'Please wait...' : mode === 'login' ? 'Sign in →' : 'Create account →'}
           </button>
@@ -133,15 +135,9 @@ function Field({ label, name, value, onChange, type = 'text', placeholder }) {
       <label style={{ display: 'block', fontSize: 12, fontWeight: 500, color: '#374237', marginBottom: 6, letterSpacing: '0.03em' }}>
         {label.toUpperCase()}
       </label>
-      <input
-        name={name} type={type} value={value} onChange={onChange} placeholder={placeholder}
+      <input name={name} type={type} value={value} onChange={onChange} placeholder={placeholder}
         required={name !== 'handicap'}
-        style={{
-          width: '100%', padding: '11px 14px', border: '1.5px solid #d1d5d1',
-          borderRadius: 8, fontSize: 14, color: '#0a1a0a', background: '#fff',
-          boxSizing: 'border-box', outline: 'none', fontFamily: "'DM Sans', sans-serif",
-          transition: 'border-color 0.15s',
-        }}
+        style={{ width: '100%', padding: '12px 14px', border: '1.5px solid #d1d5d1', borderRadius: 8, fontSize: 14, color: '#0a1a0a', background: '#fff', boxSizing: 'border-box', outline: 'none', fontFamily: "'DM Sans', sans-serif" }}
         onFocus={(e) => e.target.style.borderColor = '#16a34a'}
         onBlur={(e) => e.target.style.borderColor = '#d1d5d1'}
       />
