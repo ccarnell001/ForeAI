@@ -155,7 +155,7 @@ export default function DashboardPage() {
                   30 years of muscle memory meets AI coaching. Upload your first swing and discover exactly what's holding you back — and precisely how to fix it.
                 </p>
                 <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap' }}>
-                  <button onClick={() => navigate('/analyze')} style={{ padding: '14px 28px', background: '#4ade80', color: '#0a1a0a', border: 'none', borderRadius: 12, fontSize: 15, fontWeight: 600, cursor: 'pointer', fontFamily: "'DM Sans', sans-serif' }}>
+                  <button onClick={() => navigate('/analyze')} style={{ padding: '14px 28px', background: '#4ade80', color: '#0a1a0a', border: 'none', borderRadius: 12, fontSize: 15, fontWeight: 600, cursor: 'pointer', fontFamily: "'DM Sans', sans-serif" }}>
                     Analyze my first swing →
                   </button>
                 </div>
