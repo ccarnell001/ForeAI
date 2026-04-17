@@ -24,12 +24,28 @@ function VideoUploader({ label, badge, badgeColor, hint, frameCount, videoUrl, f
       <div style={{ fontSize: 12, color: '#9ca39c', marginBottom: 12 }}>{hint}</div>
 
       {!videoUrl ? (
-        <label style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', border: '1.5px dashed #d1d5d1', borderRadius: 10, padding: '28px 16px', cursor: 'pointer', textAlign: 'center', background: '#fff' }}>
-          <input type="file" accept="video/*" capture="environment" onChange={onUpload} style={{ display: 'none' }} />
-          <div style={{ fontSize: 28, marginBottom: 8 }}>🎬</div>
-          <div style={{ fontWeight: 500, color: '#0a1a0a', fontSize: 13, marginBottom: 3 }}>Tap to upload or record</div>
-          <div style={{ fontSize: 11, color: '#b0b8b0' }}>MP4, MOV, AVI — max 100MB</div>
-        </label>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+          <input id={`upload-${label}`} type="file" accept="video/*" onChange={onUpload} style={{ display: 'none' }} />
+          <input id={`record-${label}`} type="file" accept="video/*" capture="environment" onChange={onUpload} style={{ display: 'none' }} />
+          <label htmlFor={`upload-${label}`} style={{ display: 'flex', alignItems: 'center', gap: 12, border: '1.5px solid #e5e9e5', borderRadius: 10, padding: '14px 16px', cursor: 'pointer', background: '#fff', transition: 'border-color 0.15s' }}
+            onMouseEnter={e => e.currentTarget.style.borderColor='#16a34a'}
+            onMouseLeave={e => e.currentTarget.style.borderColor='#e5e9e5'}>
+            <div style={{ width: 38, height: 38, borderRadius: 10, background: '#f0fdf4', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 18, flexShrink: 0 }}>📁</div>
+            <div>
+              <div style={{ fontWeight: 500, color: '#0a1a0a', fontSize: 13 }}>Upload from gallery</div>
+              <div style={{ fontSize: 11, color: '#9ca39c', marginTop: 1 }}>Choose an existing video</div>
+            </div>
+          </label>
+          <label htmlFor={`record-${label}`} style={{ display: 'flex', alignItems: 'center', gap: 12, border: '1.5px solid #e5e9e5', borderRadius: 10, padding: '14px 16px', cursor: 'pointer', background: '#fff', transition: 'border-color 0.15s' }}
+            onMouseEnter={e => e.currentTarget.style.borderColor='#16a34a'}
+            onMouseLeave={e => e.currentTarget.style.borderColor='#e5e9e5'}>
+            <div style={{ width: 38, height: 38, borderRadius: 10, background: '#fff7ed', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 18, flexShrink: 0 }}>🎥</div>
+            <div>
+              <div style={{ fontWeight: 500, color: '#0a1a0a', fontSize: 13 }}>Record new video</div>
+              <div style={{ fontSize: 11, color: '#9ca39c', marginTop: 1 }}>Open camera to record now</div>
+            </div>
+          </label>
+        </div>
       ) : (
         <div>
           <video ref={videoRef} src={videoUrl} controls playsInline
