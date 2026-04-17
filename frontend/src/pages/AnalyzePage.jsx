@@ -6,7 +6,7 @@ import AnalysisReport from '../components/AnalysisReport.jsx';
 
 const CLUBS = ['Driver','3-Wood','5-Wood','Hybrid','3-Iron','4-Iron','5-Iron','6-Iron','7-Iron','8-Iron','9-Iron','PW','SW','LW','Putter'];
 
-function VideoUploader({ label, badge, badgeColor, hint, frameCount, videoUrl, frames, extracting, onUpload, onAutoExtract, onCapture, onRemoveFrame, onClear, videoRef, canvasRef }) {
+function VideoUploader({ label, badge, badgeColor, hint, frameCount, videoUrl, frames, extracting, extractProgress, extractPct, onUpload, onAutoExtract, onCapture, onRemoveFrame, onClear, onCancelExtract, videoRef, canvasRef }) {
   const galleryInputRef = React.useRef(null);
   const cameraInputRef = React.useRef(null);
   return (
@@ -27,7 +27,7 @@ function VideoUploader({ label, badge, badgeColor, hint, frameCount, videoUrl, f
 
       {!videoUrl ? (
         <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-          <input ref={galleryInputRef} type="file" accept="video/*" onChange={onUpload} style={{ display: 'none' }} />
+          <input ref={galleryInputRef} type="file" accept="video/mp4,video/quicktime,video/x-m4v,video/avi,video/webm" onChange={onUpload} style={{ display: 'none' }} />
           <input ref={cameraInputRef} type="file" accept="video/*" capture="environment" onChange={onUpload} style={{ display: 'none' }} />
           <button onClick={() => galleryInputRef.current.click()} style={{
             display: 'flex', alignItems: 'center', gap: 14,
@@ -61,21 +61,30 @@ function VideoUploader({ label, badge, badgeColor, hint, frameCount, videoUrl, f
       ) : (
         <div>
           <video ref={videoRef} src={videoUrl} controls playsInline
-            onLoadedMetadata={() => onAutoExtract(videoRef.current)}
+            onCanPlay={() => { if (!extracting && frames.length === 0) onAutoExtract(videoRef.current); }}
             style={{ width: '100%', borderRadius: 8, background: '#000', maxHeight: 220 }} />
           <canvas ref={canvasRef} style={{ display: 'none' }} />
           <div style={{ marginTop: 10 }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 }}>
               <span style={{ fontSize: 11, color: '#9ca39c', textTransform: 'uppercase', letterSpacing: '0.08em', fontWeight: 500 }}>
-                {extracting ? `⏳ Extracting ${frameCount} frames...` : `${frames.length} frames captured`}
+                {extracting ? `⏳ ${extractProgress}` : `${frames.length} frames captured`}
               </span>
               {frames.length > 0 && !extracting && (
                 <button onClick={onClear} style={btn.ghost}>Remove</button>
               )}
             </div>
             {extracting ? (
-              <div style={{ textAlign: 'center', padding: 16, color: '#9ca39c', fontSize: 12, background: '#f8faf8', borderRadius: 8 }}>
-                🎞️ Extracting key frames automatically...
+              <div style={{ padding: 16, background: '#f8faf8', borderRadius: 8 }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 8 }}>
+                  <span style={{ fontSize: 12, color: '#374237' }}>🎞️ {extractProgress}</span>
+                  <button onClick={onCancelExtract} style={{ fontSize: 11, color: '#dc2626', background: 'none', border: 'none', cursor: 'pointer', fontFamily: "'DM Sans', sans-serif" }}>Cancel</button>
+                </div>
+                <div style={{ height: 4, background: '#e5e9e5', borderRadius: 2, overflow: 'hidden' }}>
+                  <div style={{ height: '100%', background: '#16a34a', borderRadius: 2, transition: 'width 0.3s', width: extractPct + '%' }} />
+                </div>
+                <div style={{ fontSize: 11, color: '#9ca39c', marginTop: 8, textAlign: 'center' }}>
+                  Taking too long? Cancel and use <strong>+ Capture</strong> to grab frames manually.
+                </div>
               </div>
             ) : frames.length > 0 ? (
               <>
@@ -122,6 +131,10 @@ export default function AnalyzePage() {
   const [dtlFrames, setDtlFrames] = useState([]);
   const [faceOnExtracting, setFaceOnExtracting] = useState(false);
   const [dtlExtracting, setDtlExtracting] = useState(false);
+  const [faceOnProgress, setFaceOnProgress] = useState('');
+  const [faceOnPct, setFaceOnPct] = useState(0);
+  const [dtlProgress, setDtlProgress] = useState('');
+  const [dtlPct, setDtlPct] = useState(0);
   const [analyzing, setAnalyzing] = useState(false);
   const [report, setReport] = useState(null);
   const [error, setError] = useState('');
@@ -134,31 +147,92 @@ export default function AnalyzePage() {
   const dtlVideoRef = useRef(null);
   const dtlCanvasRef = useRef(null);
 
-  async function extractFrames(videoElement, count, setFrames, setExtracting) {
+  const cancelExtractRef = useRef(false);
+
+  async function extractFrames(videoElement, count, setFrames, setExtracting, setProgress, setPct) {
     if (!videoElement) return;
+    cancelExtractRef.current = false;
     setExtracting(true);
     setFrames([]);
+    setProgress('Starting extraction...');
+    setPct(0);
+
     const duration = videoElement.duration;
-    const times = Array.from({ length: count }, (_, i) => (duration / (count - 1)) * i);
+    if (!duration || isNaN(duration) || duration === 0) {
+      setError('Could not read video duration. Try a different video format.');
+      setExtracting(false);
+      return;
+    }
+
+    const times = Array.from({ length: count }, (_, i) =>
+      count === 1 ? duration / 2 : (duration / (count - 1)) * i
+    );
     const captured = [];
     const canvas = document.createElement('canvas');
-    for (const t of times) {
-      await new Promise((res) => {
+    const MAX_W = 1280;
+
+    for (let i = 0; i < times.length; i++) {
+      if (cancelExtractRef.current) break;
+
+      const t = times[i];
+      setProgress(`Extracting frame ${i + 1} of ${count}...`);
+      setPct(Math.round(((i) / count) * 100));
+
+      const ok = await new Promise((res) => {
+        const TIMEOUT = 8000;
+        let done = false;
+        const timer = setTimeout(() => {
+          if (!done) { done = true; res(false); }
+        }, TIMEOUT);
+
         videoElement.currentTime = t;
         videoElement.onseeked = () => {
-          canvas.width = videoElement.videoWidth;
-          canvas.height = videoElement.videoHeight;
-          canvas.getContext('2d').drawImage(videoElement, 0, 0);
-          const dataUrl = canvas.toDataURL('image/jpeg', 0.85);
-          const c2 = document.createElement('canvas'); c2.width = 160; c2.height = 90;
-          c2.getContext('2d').drawImage(videoElement, 0, 0, 160, 90);
-          captured.push({ data: dataUrl.split(',')[1], thumb: c2.toDataURL('image/jpeg', 0.5), time: t });
-          res();
+          if (done) return;
+          done = true;
+          clearTimeout(timer);
+          try {
+            const vw = videoElement.videoWidth;
+            const vh = videoElement.videoHeight;
+            const scale = vw > MAX_W ? MAX_W / vw : 1;
+            const w = Math.round(vw * scale);
+            const h = Math.round(vh * scale);
+            canvas.width = w;
+            canvas.height = h;
+            canvas.getContext('2d').drawImage(videoElement, 0, 0, w, h);
+            const dataUrl = canvas.toDataURL('image/jpeg', 0.82);
+            const c2 = document.createElement('canvas');
+            c2.width = 160; c2.height = Math.round(160 * (h / w));
+            c2.getContext('2d').drawImage(videoElement, 0, 0, c2.width, c2.height);
+            captured.push({ data: dataUrl.split(',')[1], thumb: c2.toDataURL('image/jpeg', 0.5), time: t });
+            res(true);
+          } catch (e) {
+            res(false);
+          }
         };
       });
+
+      if (!ok) {
+        setError(`Frame ${i + 1} timed out. Video may be in an unsupported format. Try MP4 or use manual capture.`);
+        break;
+      }
+
+      await new Promise(r => setTimeout(r, 80));
     }
+
     setFrames(captured);
     setExtracting(false);
+    setProgress('');
+    setPct(0);
+    if (captured.length > 0 && !cancelExtractRef.current) {
+      setError('');
+    }
+  }
+
+  function cancelExtract(setExtracting, setProgress, setPct) {
+    cancelExtractRef.current = true;
+    setExtracting(false);
+    setProgress('');
+    setPct(0);
   }
 
   function handleUpload(setUrl, setFrames, e) {
@@ -296,7 +370,7 @@ export default function AnalyzePage() {
                   hint="Film from directly in front. Best for rotation, posture & weight transfer."
                   frameCount={8} videoUrl={faceOnUrl} frames={faceOnFrames} extracting={faceOnExtracting}
                   onUpload={(e) => handleUpload(setFaceOnUrl, setFaceOnFrames, e)}
-                  onAutoExtract={(vid) => extractFrames(vid, 8, setFaceOnFrames, setFaceOnExtracting)}
+                  onAutoExtract={(vid) => extractFrames(vid, 8, setFaceOnFrames, setFaceOnExtracting, setFaceOnProgress, setFaceOnPct)}
                   onCapture={() => captureFrame(faceOnVideoRef, faceOnCanvasRef, setFaceOnFrames)}
                   onRemoveFrame={(i) => setFaceOnFrames(f => f.filter((_, idx) => idx !== i))}
                   onClear={() => { setFaceOnUrl(''); setFaceOnFrames([]); }}
@@ -305,7 +379,7 @@ export default function AnalyzePage() {
                   hint="Film from behind along target line. Best for club path & plane."
                   frameCount={4} videoUrl={dtlUrl} frames={dtlFrames} extracting={dtlExtracting}
                   onUpload={(e) => handleUpload(setDtlUrl, setDtlFrames, e)}
-                  onAutoExtract={(vid) => extractFrames(vid, 4, setDtlFrames, setDtlExtracting)}
+                  onAutoExtract={(vid) => extractFrames(vid, 4, setDtlFrames, setDtlExtracting, setDtlProgress, setDtlPct)}
                   onCapture={() => captureFrame(dtlVideoRef, dtlCanvasRef, setDtlFrames)}
                   onRemoveFrame={(i) => setDtlFrames(f => f.filter((_, idx) => idx !== i))}
                   onClear={() => { setDtlUrl(''); setDtlFrames([]); }}
