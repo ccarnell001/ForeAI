@@ -136,7 +136,7 @@ export default function DashboardPage() {
 
         {loading ? (
           <div style={{ textAlign: 'center', padding: 60, color: '#9ca39c' }}>Loading your dashboard...</div>
-        ) : !hasSession ? null : null}
+        ) : null}
 
         {/* EMPTY STATE */}
         {!loading && !hasSessions && (
