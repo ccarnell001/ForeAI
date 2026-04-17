@@ -88,7 +88,17 @@ function VideoUploader({ label, badge, badgeColor, hint, frameCount, videoUrl, f
               </div>
             ) : frames.length > 0 ? (
               <>
-                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 5 }}>
+                <style>{`
+                  .frame-grid-desktop { display: grid !important; }
+                  .frame-scroll-mobile { display: none !important; }
+                  @media (max-width: 768px) {
+                    .frame-grid-desktop { display: none !important; }
+                    .frame-scroll-mobile { display: flex !important; }
+                  }
+                `}</style>
+
+                {/* Desktop: 4-column grid */}
+                <div className="frame-grid-desktop" style={{ gridTemplateColumns: 'repeat(4, 1fr)', gap: 5 }}>
                   {frames.map((frame, i) => (
                     <div key={i} style={{ position: 'relative', borderRadius: 6, overflow: 'hidden', background: '#000', aspectRatio: '16/9' }}>
                       <img src={frame.thumb} alt={`Frame ${i+1}`} style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} />
@@ -97,7 +107,56 @@ function VideoUploader({ label, badge, badgeColor, hint, frameCount, videoUrl, f
                     </div>
                   ))}
                 </div>
-                <div style={{ marginTop: 8, padding: '7px 10px', background: '#f8faf8', borderRadius: 7, fontSize: 11, color: '#6b7a6b', lineHeight: 1.5 }}>
+
+                {/* Mobile: horizontal scroll strip */}
+                <div className="frame-scroll-mobile" style={{
+                  overflowX: 'auto', gap: 10, paddingBottom: 8,
+                  scrollSnapType: 'x mandatory', WebkitOverflowScrolling: 'touch',
+                }}>
+                  {frames.map((frame, i) => (
+                    <div key={i} style={{
+                      position: 'relative', borderRadius: 10, overflow: 'hidden',
+                      background: '#000', flexShrink: 0,
+                      width: '42vw', aspectRatio: '16/9',
+                      scrollSnapAlign: 'start', boxShadow: '0 2px 8px rgba(0,0,0,0.15)',
+                    }}>
+                      <img src={frame.thumb} alt={`Frame ${i+1}`} style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} />
+                      {/* Timestamp badge */}
+                      <div style={{
+                        position: 'absolute', bottom: 6, left: 6,
+                        background: 'rgba(0,0,0,0.75)', color: '#fff',
+                        fontSize: 11, fontWeight: 500, padding: '3px 7px', borderRadius: 6,
+                        fontFamily: "'DM Sans', sans-serif",
+                      }}>{frame.time.toFixed(1)}s</div>
+                      {/* Frame number */}
+                      <div style={{
+                        position: 'absolute', top: 6, left: 6,
+                        background: 'rgba(0,0,0,0.6)', color: '#fff',
+                        fontSize: 10, padding: '2px 6px', borderRadius: 5,
+                        fontFamily: "'DM Sans', sans-serif",
+                      }}>#{i+1}</div>
+                      {/* Big × button */}
+                      <button onClick={() => onRemoveFrame(i)} style={{
+                        position: 'absolute', top: 6, right: 6,
+                        background: 'rgba(220,38,38,0.92)', border: 'none',
+                        color: '#fff', borderRadius: '50%',
+                        width: 28, height: 28,
+                        cursor: 'pointer', fontSize: 16, lineHeight: '28px',
+                        padding: 0, display: 'flex', alignItems: 'center', justifyContent: 'center',
+                        fontWeight: 700,
+                      }}>×</button>
+                    </div>
+                  ))}
+                </div>
+
+                {/* Scroll hint — only shows when there are more frames than fit */}
+                {frames.length > 2 && (
+                  <div style={{ fontSize: 11, color: '#9ca39c', textAlign: 'center', marginTop: 2 }} className="frame-scroll-mobile">
+                    ← swipe to see all {frames.length} frames →
+                  </div>
+                )}
+
+                <div style={{ marginTop: 8, padding: '8px 10px', background: '#f8faf8', borderRadius: 7, fontSize: 11, color: '#6b7a6b', lineHeight: 1.5 }}>
                   💡 Tap × on any frame to remove it, scrub the video and tap <strong>+ Capture</strong> to replace it.
                 </div>
               </>
