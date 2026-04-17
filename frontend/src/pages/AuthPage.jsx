@@ -25,7 +25,7 @@ export default function AuthPage() {
         ? await api.login({ email: form.email, password: form.password })
         : await api.register(form);
       login(data.token, data.user);
-      navigate('/analyze');
+      navigate('/dashboard');
     } catch (err) {
       setError(err.message);
     } finally {
