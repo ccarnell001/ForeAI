@@ -51,10 +51,11 @@ export default function HistoryPage() {
           Fore<span style={{ color: '#4ade80', fontStyle: 'italic' }}>AI</span>
         </div>
         <div style={{ display: 'flex', alignItems: 'center', gap: 16 }}>
+          <button onClick={() => navigate('/dashboard')} style={{ fontSize: 13, color: '#374237', background: 'none', border: 'none', cursor: 'pointer', fontFamily: "'DM Sans', sans-serif", fontWeight: 500 }}>Dashboard</button>
           <button onClick={() => navigate('/analyze')} style={{ fontSize: 13, background: '#0a1a0a', color: '#fff', border: 'none', borderRadius: 8, padding: '8px 16px', cursor: 'pointer', fontFamily: "'DM Sans', sans-serif" }}>
             + New analysis
           </button>
-          <button onClick={logout} style={{ fontSize: 13, color: '#6b7a6b', background: 'none', border: 'none', cursor: 'pointer', fontFamily: "'DM Sans', sans-serif" }}>Sign out</button>
+          <button onClick={logout} style={{ fontSize: 13, color: '#dc2626', background: 'none', border: 'none', cursor: 'pointer', fontFamily: "'DM Sans', sans-serif" }}>Sign out</button>
         </div>
       </nav>
 

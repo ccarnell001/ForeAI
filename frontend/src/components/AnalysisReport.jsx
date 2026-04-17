@@ -26,6 +26,7 @@ export default function AnalysisReport({ report, quota, onNewAnalysis, userName 
         </div>
         <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
           <span className="nav-name" style={{ fontSize: 13, color: '#6b7a6b' }}>Hey, {userName?.split(' ')[0]} 👋</span>
+          <button onClick={() => navigate('/dashboard')} style={nb}>Dashboard</button>
           <button onClick={() => navigate('/history')} style={nb}>History</button>
           <button onClick={onNewAnalysis} style={{ ...nb, background: '#0a1a0a', color: '#fff', borderRadius: 8, padding: '7px 14px' }}>+ New</button>
           <button onClick={logout} style={{ ...nb, color: '#dc2626' }}>Sign out</button>
