@@ -1,4 +1,4 @@
-import { useState, useRef } from 'react';
+import React, { useState, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../components/AuthContext.jsx';
 import { api } from '../api/index.js';
@@ -7,6 +7,8 @@ import AnalysisReport from '../components/AnalysisReport.jsx';
 const CLUBS = ['Driver','3-Wood','5-Wood','Hybrid','3-Iron','4-Iron','5-Iron','6-Iron','7-Iron','8-Iron','9-Iron','PW','SW','LW','Putter'];
 
 function VideoUploader({ label, badge, badgeColor, hint, frameCount, videoUrl, frames, extracting, onUpload, onAutoExtract, onCapture, onRemoveFrame, onClear, videoRef, canvasRef }) {
+  const galleryInputRef = React.useRef(null);
+  const cameraInputRef = React.useRef(null);
   return (
     <div style={{
       border: badge === 'Required' ? '1.5px solid #16a34a' : '1.5px dashed #d1d5d1',
@@ -24,18 +26,37 @@ function VideoUploader({ label, badge, badgeColor, hint, frameCount, videoUrl, f
       <div style={{ fontSize: 12, color: '#9ca39c', marginBottom: 12 }}>{hint}</div>
 
       {!videoUrl ? (
-        <div>
-          <input id={`upload-${label}`} type="file" accept="video/*" onChange={onUpload} style={{ display: 'none' }} />
-          <label htmlFor={`upload-${label}`} style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', border: '2px dashed #d1d5d1', borderRadius: 12, padding: '28px 16px', cursor: 'pointer', textAlign: 'center', background: '#fff' }}>
-            <div style={{ fontSize: 32, marginBottom: 10 }}>🎬</div>
-            <div style={{ fontWeight: 500, color: '#0a1a0a', fontSize: 14, marginBottom: 4 }}>Tap to choose video</div>
-            <div style={{ fontSize: 12, color: '#9ca39c', marginBottom: 6 }}>Select from gallery or record new</div>
-            <div style={{ display: 'flex', gap: 8, marginTop: 4 }}>
-              <span style={{ fontSize: 11, background: '#f0fdf4', color: '#16a34a', border: '1px solid #bbf7d0', borderRadius: 20, padding: '3px 10px' }}>📁 Gallery</span>
-              <span style={{ fontSize: 11, background: '#fff7ed', color: '#d97706', border: '1px solid #fed7aa', borderRadius: 20, padding: '3px 10px' }}>🎥 Camera</span>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+          <input ref={galleryInputRef} type="file" accept="video/*" onChange={onUpload} style={{ display: 'none' }} />
+          <input ref={cameraInputRef} type="file" accept="video/*" capture="environment" onChange={onUpload} style={{ display: 'none' }} />
+          <button onClick={() => galleryInputRef.current.click()} style={{
+            display: 'flex', alignItems: 'center', gap: 14,
+            border: '1.5px solid #e5e9e5', borderRadius: 12, padding: '16px 18px',
+            cursor: 'pointer', background: '#fff', textAlign: 'left', width: '100%',
+            fontFamily: "'DM Sans', sans-serif", transition: 'border-color 0.15s, background 0.15s',
+          }}
+            onMouseEnter={e => { e.currentTarget.style.borderColor='#16a34a'; e.currentTarget.style.background='#f9fef9'; }}
+            onMouseLeave={e => { e.currentTarget.style.borderColor='#e5e9e5'; e.currentTarget.style.background='#fff'; }}>
+            <div style={{ width: 46, height: 46, borderRadius: 12, background: '#f0fdf4', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 22, flexShrink: 0 }}>📁</div>
+            <div>
+              <div style={{ fontWeight: 500, color: '#0a1a0a', fontSize: 14 }}>Upload from gallery</div>
+              <div style={{ fontSize: 12, color: '#9ca39c', marginTop: 2 }}>Choose an existing video from your phone</div>
             </div>
-            <div style={{ fontSize: 11, color: '#b0b8b0', marginTop: 8 }}>MP4, MOV, AVI — max 100MB</div>
-          </label>
+          </button>
+          <button onClick={() => cameraInputRef.current.click()} style={{
+            display: 'flex', alignItems: 'center', gap: 14,
+            border: '1.5px solid #e5e9e5', borderRadius: 12, padding: '16px 18px',
+            cursor: 'pointer', background: '#fff', textAlign: 'left', width: '100%',
+            fontFamily: "'DM Sans', sans-serif", transition: 'border-color 0.15s, background 0.15s',
+          }}
+            onMouseEnter={e => { e.currentTarget.style.borderColor='#d97706'; e.currentTarget.style.background='#fffdf7'; }}
+            onMouseLeave={e => { e.currentTarget.style.borderColor='#e5e9e5'; e.currentTarget.style.background='#fff'; }}>
+            <div style={{ width: 46, height: 46, borderRadius: 12, background: '#fff7ed', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 22, flexShrink: 0 }}>🎥</div>
+            <div>
+              <div style={{ fontWeight: 500, color: '#0a1a0a', fontSize: 14 }}>Record new video</div>
+              <div style={{ fontSize: 12, color: '#9ca39c', marginTop: 2 }}>Open camera and record your swing now</div>
+            </div>
+          </button>
         </div>
       ) : (
         <div>
