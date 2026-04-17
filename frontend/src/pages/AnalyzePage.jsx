@@ -24,26 +24,17 @@ function VideoUploader({ label, badge, badgeColor, hint, frameCount, videoUrl, f
       <div style={{ fontSize: 12, color: '#9ca39c', marginBottom: 12 }}>{hint}</div>
 
       {!videoUrl ? (
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+        <div>
           <input id={`upload-${label}`} type="file" accept="video/*" onChange={onUpload} style={{ display: 'none' }} />
-          <input id={`record-${label}`} type="file" accept="video/*" capture="environment" onChange={onUpload} style={{ display: 'none' }} />
-          <label htmlFor={`upload-${label}`} style={{ display: 'flex', alignItems: 'center', gap: 12, border: '1.5px solid #e5e9e5', borderRadius: 10, padding: '14px 16px', cursor: 'pointer', background: '#fff', transition: 'border-color 0.15s' }}
-            onMouseEnter={e => e.currentTarget.style.borderColor='#16a34a'}
-            onMouseLeave={e => e.currentTarget.style.borderColor='#e5e9e5'}>
-            <div style={{ width: 38, height: 38, borderRadius: 10, background: '#f0fdf4', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 18, flexShrink: 0 }}>📁</div>
-            <div>
-              <div style={{ fontWeight: 500, color: '#0a1a0a', fontSize: 13 }}>Upload from gallery</div>
-              <div style={{ fontSize: 11, color: '#9ca39c', marginTop: 1 }}>Choose an existing video</div>
+          <label htmlFor={`upload-${label}`} style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', border: '2px dashed #d1d5d1', borderRadius: 12, padding: '28px 16px', cursor: 'pointer', textAlign: 'center', background: '#fff' }}>
+            <div style={{ fontSize: 32, marginBottom: 10 }}>🎬</div>
+            <div style={{ fontWeight: 500, color: '#0a1a0a', fontSize: 14, marginBottom: 4 }}>Tap to choose video</div>
+            <div style={{ fontSize: 12, color: '#9ca39c', marginBottom: 6 }}>Select from gallery or record new</div>
+            <div style={{ display: 'flex', gap: 8, marginTop: 4 }}>
+              <span style={{ fontSize: 11, background: '#f0fdf4', color: '#16a34a', border: '1px solid #bbf7d0', borderRadius: 20, padding: '3px 10px' }}>📁 Gallery</span>
+              <span style={{ fontSize: 11, background: '#fff7ed', color: '#d97706', border: '1px solid #fed7aa', borderRadius: 20, padding: '3px 10px' }}>🎥 Camera</span>
             </div>
-          </label>
-          <label htmlFor={`record-${label}`} style={{ display: 'flex', alignItems: 'center', gap: 12, border: '1.5px solid #e5e9e5', borderRadius: 10, padding: '14px 16px', cursor: 'pointer', background: '#fff', transition: 'border-color 0.15s' }}
-            onMouseEnter={e => e.currentTarget.style.borderColor='#16a34a'}
-            onMouseLeave={e => e.currentTarget.style.borderColor='#e5e9e5'}>
-            <div style={{ width: 38, height: 38, borderRadius: 10, background: '#fff7ed', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 18, flexShrink: 0 }}>🎥</div>
-            <div>
-              <div style={{ fontWeight: 500, color: '#0a1a0a', fontSize: 13 }}>Record new video</div>
-              <div style={{ fontSize: 11, color: '#9ca39c', marginTop: 1 }}>Open camera to record now</div>
-            </div>
+            <div style={{ fontSize: 11, color: '#b0b8b0', marginTop: 8 }}>MP4, MOV, AVI — max 100MB</div>
           </label>
         </div>
       ) : (
