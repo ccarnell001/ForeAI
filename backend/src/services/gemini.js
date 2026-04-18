@@ -89,6 +89,10 @@ Watch the full swing from start to finish. Provide thorough, encouraging analysi
     // Retry with exponential backoff for rate limit errors
     let response;
     let retryAttempts = 0;
+    const isRateLimit = (err) => {
+      const msg = JSON.stringify(err?.message || err?.toString() || '');
+      return msg.includes('429') || msg.includes('RESOURCE_EXHAUSTED') || msg.includes('Too Many Requests');
+    };
     while (retryAttempts < 4) {
       try {
         response = await genai.models.generateContent({
@@ -101,10 +105,12 @@ Watch the full swing from start to finish. Provide thorough, encouraging analysi
         break;
       } catch (err) {
         retryAttempts++;
-        if (err?.status === 429 && retryAttempts < 4) {
-          const wait = retryAttempts * 8000;
+        if (isRateLimit(err) && retryAttempts < 4) {
+          const wait = retryAttempts * 15000;
           console.log(`Rate limited, retrying in ${wait/1000}s (attempt ${retryAttempts}/3)...`);
           await new Promise(r => setTimeout(r, wait));
+        } else if (isRateLimit(err)) {
+          throw new Error('ForeAI is experiencing high demand right now. Please wait 60 seconds and try again.');
         } else {
           throw err;
         }
