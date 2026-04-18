@@ -3,10 +3,11 @@ import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../components/AuthContext.jsx';
 import { api } from '../api/index.js';
 import AnalysisReport from '../components/AnalysisReport.jsx';
+import MobileFramePicker from '../components/MobileFramePicker.jsx';
 
 const CLUBS = ['Driver','3-Wood','5-Wood','Hybrid','3-Iron','4-Iron','5-Iron','6-Iron','7-Iron','8-Iron','9-Iron','PW','SW','LW','Putter'];
 
-function VideoUploader({ label, badge, badgeColor, hint, frameCount, videoUrl, frames, extracting, extractProgress, extractPct, onUpload, onAutoExtract, onCapture, onRemoveFrame, onClear, onCancelExtract, videoRef, canvasRef }) {
+function VideoUploader({ label, badge, badgeColor, hint, frameCount, videoUrl, frames, extracting, extractProgress, extractPct, onUpload, onAutoExtract, onCapture, onRemoveFrame, onClear, onCancelExtract, onMobilePick, videoRef, canvasRef }) {
   const galleryInputRef = React.useRef(null);
   const cameraInputRef = React.useRef(null);
   return (
@@ -61,7 +62,7 @@ function VideoUploader({ label, badge, badgeColor, hint, frameCount, videoUrl, f
       ) : (
         <div>
           <video ref={videoRef} src={videoUrl} controls playsInline
-            onCanPlay={() => { if (!extracting && frames.length === 0) onAutoExtract(videoRef.current); }}
+            onCanPlay={() => { if (!extracting && frames.length === 0) { if (window.innerWidth <= 768) { onMobilePick(); } else { onAutoExtract(videoRef.current); } } }}
             style={{ width: '100%', borderRadius: 8, background: '#000', maxHeight: 220 }} />
           <canvas ref={canvasRef} style={{ display: 'none' }} />
           <div style={{ marginTop: 10 }}>
@@ -162,8 +163,8 @@ function VideoUploader({ label, badge, badgeColor, hint, frameCount, videoUrl, f
               </>
             ) : null}
             <div style={{ display: 'flex', gap: 6, marginTop: 8, flexWrap: 'wrap' }}>
-              <button onClick={() => onAutoExtract(videoRef.current)} disabled={extracting} style={btn.primary}>⚡ Re-extract</button>
-              <button onClick={onCapture} style={btn.secondary}>+ Capture</button>
+              <button onClick={() => { if (window.innerWidth <= 768) { onMobilePick(); } else { onAutoExtract(videoRef.current); } }} disabled={extracting} style={btn.primary}>⚡ {window.innerWidth <= 768 ? 'Manage frames' : 'Re-extract'}</button>
+              <button onClick={onCapture} className="desktop-only-btn" style={btn.secondary}>+ Capture</button>
             </div>
           </div>
         </div>
@@ -201,6 +202,8 @@ export default function AnalyzePage() {
   const [notes, setNotes] = useState('');
   const [quota, setQuota] = useState(null);
   const [clubError, setClubError] = useState(false);
+  const [mobilePicker, setMobilePicker] = useState(null); // 'faceOn' | 'dtl' | null
+  const isMobile = () => window.innerWidth <= 768;
   const faceOnVideoRef = useRef(null);
   const faceOnCanvasRef = useRef(null);
   const dtlVideoRef = useRef(null);
@@ -347,6 +350,28 @@ export default function AnalyzePage() {
     }
   }
 
+  // Show mobile frame picker fullscreen when active
+  if (mobilePicker === 'faceOn') {
+    return <MobileFramePicker
+      videoUrl={faceOnUrl}
+      frames={faceOnFrames}
+      onFramesChange={setFaceOnFrames}
+      onDone={() => setMobilePicker(null)}
+      label="Face-on view"
+      frameCount={8}
+    />;
+  }
+  if (mobilePicker === 'dtl') {
+    return <MobileFramePicker
+      videoUrl={dtlUrl}
+      frames={dtlFrames}
+      onFramesChange={setDtlFrames}
+      onDone={() => setMobilePicker(null)}
+      label="Down-the-line view"
+      frameCount={4}
+    />;
+  }
+
   if (report) {
     return <AnalysisReport report={report} quota={quota}
       onNewAnalysis={() => { setReport(null); setFaceOnFrames([]); setDtlFrames([]); setFaceOnUrl(''); setDtlUrl(''); setClub(''); setNotes(''); }}
@@ -429,20 +454,26 @@ export default function AnalyzePage() {
                 <VideoUploader label="Face-on view" badge="Required" badgeColor="green"
                   hint="Film from directly in front. Best for rotation, posture & weight transfer."
                   frameCount={8} videoUrl={faceOnUrl} frames={faceOnFrames} extracting={faceOnExtracting}
+                  extractProgress={faceOnProgress} extractPct={faceOnPct}
                   onUpload={(e) => handleUpload(setFaceOnUrl, setFaceOnFrames, e)}
                   onAutoExtract={(vid) => extractFrames(vid, 8, setFaceOnFrames, setFaceOnExtracting, setFaceOnProgress, setFaceOnPct)}
                   onCapture={() => captureFrame(faceOnVideoRef, faceOnCanvasRef, setFaceOnFrames)}
                   onRemoveFrame={(i) => setFaceOnFrames(f => f.filter((_, idx) => idx !== i))}
                   onClear={() => { setFaceOnUrl(''); setFaceOnFrames([]); }}
+                  onCancelExtract={() => cancelExtract(setFaceOnExtracting, setFaceOnProgress, setFaceOnPct)}
+                  onMobilePick={() => setMobilePicker('faceOn')}
                   videoRef={faceOnVideoRef} canvasRef={faceOnCanvasRef} />
                 <VideoUploader label="Down-the-line view" badge="Optional" badgeColor="gray"
                   hint="Film from behind along target line. Best for club path & plane."
                   frameCount={4} videoUrl={dtlUrl} frames={dtlFrames} extracting={dtlExtracting}
+                  extractProgress={dtlProgress} extractPct={dtlPct}
                   onUpload={(e) => handleUpload(setDtlUrl, setDtlFrames, e)}
                   onAutoExtract={(vid) => extractFrames(vid, 4, setDtlFrames, setDtlExtracting, setDtlProgress, setDtlPct)}
                   onCapture={() => captureFrame(dtlVideoRef, dtlCanvasRef, setDtlFrames)}
                   onRemoveFrame={(i) => setDtlFrames(f => f.filter((_, idx) => idx !== i))}
                   onClear={() => { setDtlUrl(''); setDtlFrames([]); }}
+                  onCancelExtract={() => cancelExtract(setDtlExtracting, setDtlProgress, setDtlPct)}
+                  onMobilePick={() => setMobilePicker('dtl')}
                   videoRef={dtlVideoRef} canvasRef={dtlCanvasRef} />
               </div>
             </div>
