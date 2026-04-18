@@ -1,24 +1,26 @@
 import express from 'express';
 import { requireAuth } from '../middleware/auth.js';
 import { checkQuota, incrementQuota } from '../middleware/quota.js';
-import { analyzeSwing } from '../services/claude.js';
+import { analyzeSwingVideo } from '../services/gemini.js';
 import { pool } from '../db/index.js';
 
 const router = express.Router();
 
 router.post('/', requireAuth, checkQuota, async (req, res) => {
-  const { frames, club, viewType, notes, title } = req.body;
+  const { videoData, mimeType, club, viewType, notes, title } = req.body;
 
-  if (!frames || !Array.isArray(frames) || frames.length === 0)
-    return res.status(400).json({ error: 'At least one frame is required' });
-  if (frames.length > 12)
-    return res.status(400).json({ error: 'Maximum 12 frames per analysis' });
+  if (!videoData) return res.status(400).json({ error: 'No video data provided' });
 
   const userId = req.user.id;
   const userName = req.user.name;
 
   try {
-    const report = await analyzeSwing(frames, { club, viewType, notes, userName });
+    const videoBuffer = Buffer.from(videoData, 'base64');
+    const fileMimeType = mimeType || 'video/mp4';
+
+    const report = await analyzeSwingVideo(videoBuffer, fileMimeType, {
+      club, viewType, notes, userName,
+    });
 
     const sessionResult = await pool.query(
       `INSERT INTO sessions (user_id, title, club, view_type, notes)
@@ -30,7 +32,7 @@ router.post('/', requireAuth, checkQuota, async (req, res) => {
     await pool.query(
       `INSERT INTO analyses (session_id, user_id, frame_count, report)
        VALUES ($1, $2, $3, $4)`,
-      [sessionId, userId, frames.length, JSON.stringify(report)]
+      [sessionId, userId, 1, JSON.stringify(report)]
     );
 
     await incrementQuota(userId);
@@ -46,7 +48,7 @@ router.post('/', requireAuth, checkQuota, async (req, res) => {
     if (err instanceof SyntaxError) {
       return res.status(500).json({ error: 'Failed to parse AI response. Please try again.' });
     }
-    res.status(500).json({ error: 'Analysis failed. Please try again.' });
+    res.status(500).json({ error: err.message || 'Analysis failed. Please try again.' });
   }
 });
 

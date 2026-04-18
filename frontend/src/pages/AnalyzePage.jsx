@@ -1,19 +1,34 @@
-import React, { useState, useRef } from 'react';
+import { useState, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../components/AuthContext.jsx';
 import { api } from '../api/index.js';
 import AnalysisReport from '../components/AnalysisReport.jsx';
-import MobileFramePicker from '../components/MobileFramePicker.jsx';
 
 const CLUBS = ['Driver','3-Wood','5-Wood','Hybrid','3-Iron','4-Iron','5-Iron','6-Iron','7-Iron','8-Iron','9-Iron','PW','SW','LW','Putter'];
 
-function VideoUploader({ label, badge, badgeColor, hint, frameCount, videoUrl, frames, extracting, extractProgress, extractPct, onUpload, onAutoExtract, onCapture, onRemoveFrame, onClear, onCancelExtract, onMobilePick, videoRef, canvasRef }) {
-  const galleryInputRef = React.useRef(null);
-  const cameraInputRef = React.useRef(null);
+function StepLabel({ number, title, subtitle }) {
+  return (
+    <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 16 }}>
+      <div style={{ width: 28, height: 28, borderRadius: '50%', background: '#0a1a0a', color: '#4ade80', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 13, fontWeight: 700, flexShrink: 0 }}>
+        {number}
+      </div>
+      <div>
+        <div style={{ fontSize: 14, fontWeight: 500, color: '#0a1a0a' }}>{title}</div>
+        {subtitle && <div style={{ fontSize: 12, color: '#9ca39c', marginTop: 1 }}>{subtitle}</div>}
+      </div>
+    </div>
+  );
+}
+
+function VideoDropzone({ label, badge, badgeColor, hint, videoUrl, videoFile, onUpload, onClear }) {
+  const galleryRef = useRef(null);
+  const cameraRef = useRef(null);
+
   return (
     <div style={{
       border: badge === 'Required' ? '1.5px solid #16a34a' : '1.5px dashed #d1d5d1',
-      borderRadius: 12, padding: 16, background: badge === 'Required' ? '#fff' : '#fafbfa',
+      borderRadius: 12, padding: 16,
+      background: badge === 'Required' ? '#fff' : '#fafbfa',
     }}>
       <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 4 }}>
         <span style={{ fontSize: 13, fontWeight: 500, color: '#0a1a0a' }}>{label}</span>
@@ -27,31 +42,29 @@ function VideoUploader({ label, badge, badgeColor, hint, frameCount, videoUrl, f
       <div style={{ fontSize: 12, color: '#9ca39c', marginBottom: 12 }}>{hint}</div>
 
       {!videoUrl ? (
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-          <input ref={galleryInputRef} type="file" accept="video/mp4,video/quicktime,video/x-m4v,video/avi,video/webm" onChange={onUpload} style={{ display: 'none' }} />
-          <input ref={cameraInputRef} type="file" accept="video/*" capture="environment" onChange={onUpload} style={{ display: 'none' }} />
-          <button onClick={() => galleryInputRef.current.click()} style={{
-            display: 'flex', alignItems: 'center', gap: 14,
-            border: '1.5px solid #e5e9e5', borderRadius: 12, padding: '16px 18px',
-            cursor: 'pointer', background: '#fff', textAlign: 'left', width: '100%',
-            fontFamily: "'DM Sans', sans-serif", transition: 'border-color 0.15s, background 0.15s',
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+          <input ref={galleryRef} type="file" accept="video/mp4,video/quicktime,video/x-m4v,video/avi,video/webm" onChange={onUpload} style={{ display: 'none' }} />
+          <input ref={cameraRef} type="file" accept="video/*" capture="environment" onChange={onUpload} style={{ display: 'none' }} />
+          <button onClick={() => galleryRef.current.click()} style={{
+            display: 'flex', alignItems: 'center', gap: 14, border: '1.5px solid #e5e9e5',
+            borderRadius: 12, padding: '16px 18px', cursor: 'pointer', background: '#fff',
+            textAlign: 'left', width: '100%', fontFamily: "'DM Sans', sans-serif",
           }}
-            onMouseEnter={e => { e.currentTarget.style.borderColor='#16a34a'; e.currentTarget.style.background='#f9fef9'; }}
-            onMouseLeave={e => { e.currentTarget.style.borderColor='#e5e9e5'; e.currentTarget.style.background='#fff'; }}>
+            onMouseEnter={e => { e.currentTarget.style.borderColor = '#16a34a'; e.currentTarget.style.background = '#f9fef9'; }}
+            onMouseLeave={e => { e.currentTarget.style.borderColor = '#e5e9e5'; e.currentTarget.style.background = '#fff'; }}>
             <div style={{ width: 46, height: 46, borderRadius: 12, background: '#f0fdf4', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 22, flexShrink: 0 }}>📁</div>
             <div>
               <div style={{ fontWeight: 500, color: '#0a1a0a', fontSize: 14 }}>Upload from gallery</div>
               <div style={{ fontSize: 12, color: '#9ca39c', marginTop: 2 }}>Choose an existing video from your phone</div>
             </div>
           </button>
-          <button onClick={() => cameraInputRef.current.click()} style={{
-            display: 'flex', alignItems: 'center', gap: 14,
-            border: '1.5px solid #e5e9e5', borderRadius: 12, padding: '16px 18px',
-            cursor: 'pointer', background: '#fff', textAlign: 'left', width: '100%',
-            fontFamily: "'DM Sans', sans-serif", transition: 'border-color 0.15s, background 0.15s',
+          <button onClick={() => cameraRef.current.click()} style={{
+            display: 'flex', alignItems: 'center', gap: 14, border: '1.5px solid #e5e9e5',
+            borderRadius: 12, padding: '16px 18px', cursor: 'pointer', background: '#fff',
+            textAlign: 'left', width: '100%', fontFamily: "'DM Sans', sans-serif",
           }}
-            onMouseEnter={e => { e.currentTarget.style.borderColor='#d97706'; e.currentTarget.style.background='#fffdf7'; }}
-            onMouseLeave={e => { e.currentTarget.style.borderColor='#e5e9e5'; e.currentTarget.style.background='#fff'; }}>
+            onMouseEnter={e => { e.currentTarget.style.borderColor = '#d97706'; e.currentTarget.style.background = '#fffdf7'; }}
+            onMouseLeave={e => { e.currentTarget.style.borderColor = '#e5e9e5'; e.currentTarget.style.background = '#fff'; }}>
             <div style={{ width: 46, height: 46, borderRadius: 12, background: '#fff7ed', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 22, flexShrink: 0 }}>🎥</div>
             <div>
               <div style={{ fontWeight: 500, color: '#0a1a0a', fontSize: 14 }}>Record new video</div>
@@ -61,111 +74,15 @@ function VideoUploader({ label, badge, badgeColor, hint, frameCount, videoUrl, f
         </div>
       ) : (
         <div>
-          <video ref={videoRef} src={videoUrl} controls playsInline
-            onCanPlay={() => { if (!extracting && frames.length === 0) { if (window.innerWidth <= 768) { onMobilePick(); } else { onAutoExtract(videoRef.current); } } }}
-            style={{ width: '100%', borderRadius: 8, background: '#000', maxHeight: 220 }} />
-          <canvas ref={canvasRef} style={{ display: 'none' }} />
-          <div style={{ marginTop: 10 }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 }}>
-              <span style={{ fontSize: 11, color: '#9ca39c', textTransform: 'uppercase', letterSpacing: '0.08em', fontWeight: 500 }}>
-                {extracting ? `⏳ ${extractProgress}` : `${frames.length} frames captured`}
-              </span>
-              {frames.length > 0 && !extracting && (
-                <button onClick={onClear} style={btn.ghost}>Remove</button>
-              )}
+          <video src={videoUrl} controls playsInline style={{ width: '100%', borderRadius: 8, background: '#000', maxHeight: 220 }} />
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginTop: 10 }}>
+            <div style={{ fontSize: 12, color: '#16a34a', fontWeight: 500 }}>
+              ✓ {videoFile?.name || 'Video ready'}
+              {videoFile && <span style={{ color: '#9ca39c', fontWeight: 400 }}> · {(videoFile.size / 1024 / 1024).toFixed(1)}MB</span>}
             </div>
-            {extracting ? (
-              <div style={{ padding: 16, background: '#f8faf8', borderRadius: 8 }}>
-                <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 8 }}>
-                  <span style={{ fontSize: 12, color: '#374237' }}>🎞️ {extractProgress}</span>
-                  <button onClick={onCancelExtract} style={{ fontSize: 11, color: '#dc2626', background: 'none', border: 'none', cursor: 'pointer', fontFamily: "'DM Sans', sans-serif" }}>Cancel</button>
-                </div>
-                <div style={{ height: 4, background: '#e5e9e5', borderRadius: 2, overflow: 'hidden' }}>
-                  <div style={{ height: '100%', background: '#16a34a', borderRadius: 2, transition: 'width 0.3s', width: extractPct + '%' }} />
-                </div>
-                <div style={{ fontSize: 11, color: '#9ca39c', marginTop: 8, textAlign: 'center' }}>
-                  Taking too long? Cancel and use <strong>+ Capture</strong> to grab frames manually.
-                </div>
-              </div>
-            ) : frames.length > 0 ? (
-              <>
-                <style>{`
-                  .frame-grid-desktop { display: grid !important; }
-                  .frame-scroll-mobile { display: none !important; }
-                  @media (max-width: 768px) {
-                    .frame-grid-desktop { display: none !important; }
-                    .frame-scroll-mobile { display: flex !important; }
-                  }
-                `}</style>
-
-                {/* Desktop: 4-column grid */}
-                <div className="frame-grid-desktop" style={{ gridTemplateColumns: 'repeat(4, 1fr)', gap: 5 }}>
-                  {frames.map((frame, i) => (
-                    <div key={i} style={{ position: 'relative', borderRadius: 6, overflow: 'hidden', background: '#000', aspectRatio: '16/9' }}>
-                      <img src={frame.thumb} alt={`Frame ${i+1}`} style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} />
-                      <div style={{ position: 'absolute', top: 2, left: 2, background: 'rgba(0,0,0,0.7)', color: '#fff', fontSize: 8, padding: '1px 4px', borderRadius: 3 }}>{frame.time.toFixed(1)}s</div>
-                      <button onClick={() => onRemoveFrame(i)} style={{ position: 'absolute', top: 2, right: 2, background: 'rgba(220,38,38,0.9)', border: 'none', color: '#fff', borderRadius: '50%', width: 16, height: 16, cursor: 'pointer', fontSize: 11, lineHeight: '16px', padding: 0 }}>×</button>
-                    </div>
-                  ))}
-                </div>
-
-                {/* Mobile: horizontal scroll strip */}
-                <div className="frame-scroll-mobile" style={{
-                  overflowX: 'auto', gap: 10, paddingBottom: 8,
-                  scrollSnapType: 'x mandatory', WebkitOverflowScrolling: 'touch',
-                }}>
-                  {frames.map((frame, i) => (
-                    <div key={i} style={{
-                      position: 'relative', borderRadius: 10, overflow: 'hidden',
-                      background: '#000', flexShrink: 0,
-                      width: '42vw', aspectRatio: '16/9',
-                      scrollSnapAlign: 'start', boxShadow: '0 2px 8px rgba(0,0,0,0.15)',
-                    }}>
-                      <img src={frame.thumb} alt={`Frame ${i+1}`} style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} />
-                      {/* Timestamp badge */}
-                      <div style={{
-                        position: 'absolute', bottom: 6, left: 6,
-                        background: 'rgba(0,0,0,0.75)', color: '#fff',
-                        fontSize: 11, fontWeight: 500, padding: '3px 7px', borderRadius: 6,
-                        fontFamily: "'DM Sans', sans-serif",
-                      }}>{frame.time.toFixed(1)}s</div>
-                      {/* Frame number */}
-                      <div style={{
-                        position: 'absolute', top: 6, left: 6,
-                        background: 'rgba(0,0,0,0.6)', color: '#fff',
-                        fontSize: 10, padding: '2px 6px', borderRadius: 5,
-                        fontFamily: "'DM Sans', sans-serif",
-                      }}>#{i+1}</div>
-                      {/* Big × button */}
-                      <button onClick={() => onRemoveFrame(i)} style={{
-                        position: 'absolute', top: 6, right: 6,
-                        background: 'rgba(220,38,38,0.92)', border: 'none',
-                        color: '#fff', borderRadius: '50%',
-                        width: 28, height: 28,
-                        cursor: 'pointer', fontSize: 16, lineHeight: '28px',
-                        padding: 0, display: 'flex', alignItems: 'center', justifyContent: 'center',
-                        fontWeight: 700,
-                      }}>×</button>
-                    </div>
-                  ))}
-                </div>
-
-                {/* Scroll hint — only shows when there are more frames than fit */}
-                {frames.length > 2 && (
-                  <div style={{ fontSize: 11, color: '#9ca39c', textAlign: 'center', marginTop: 2 }} className="frame-scroll-mobile">
-                    ← swipe to see all {frames.length} frames →
-                  </div>
-                )}
-
-                <div style={{ marginTop: 8, padding: '8px 10px', background: '#f8faf8', borderRadius: 7, fontSize: 11, color: '#6b7a6b', lineHeight: 1.5 }}>
-                  💡 Tap × on any frame to remove it, scrub the video and tap <strong>+ Capture</strong> to replace it.
-                </div>
-              </>
-            ) : null}
-            <div style={{ display: 'flex', gap: 6, marginTop: 8, flexWrap: 'wrap' }}>
-              <button onClick={() => { if (window.innerWidth <= 768) { onMobilePick(); } else { onAutoExtract(videoRef.current); } }} disabled={extracting} style={btn.primary}>⚡ {window.innerWidth <= 768 ? 'Manage frames' : 'Re-extract'}</button>
-              <button onClick={onCapture} className="desktop-only-btn" style={btn.secondary}>+ Capture</button>
-            </div>
+            <button onClick={onClear} style={{ fontSize: 12, color: '#dc2626', background: 'none', border: 'none', cursor: 'pointer', fontFamily: "'DM Sans', sans-serif" }}>
+              Remove
+            </button>
           </div>
         </div>
       )}
@@ -175,7 +92,7 @@ function VideoUploader({ label, badge, badgeColor, hint, frameCount, videoUrl, f
 
 function SummaryRow({ label, value, done, required }) {
   return (
-    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: 13, padding: '4px 0', borderBottom: '1px solid #f0f2f0' }}>
+    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: 13, padding: '5px 0', borderBottom: '1px solid #f0f2f0' }}>
       <span style={{ color: '#6b7a6b' }}>{label}{required && <span style={{ color: '#dc2626', marginLeft: 2 }}>*</span>}</span>
       <span style={{ fontWeight: 500, color: done ? '#16a34a' : '#9ca39c' }}>{done ? '✓ ' : ''}{value}</span>
     </div>
@@ -185,233 +102,107 @@ function SummaryRow({ label, value, done, required }) {
 export default function AnalyzePage() {
   const { user, logout } = useAuth();
   const navigate = useNavigate();
+  const [faceOnFile, setFaceOnFile] = useState(null);
   const [faceOnUrl, setFaceOnUrl] = useState('');
+  const [dtlFile, setDtlFile] = useState(null);
   const [dtlUrl, setDtlUrl] = useState('');
-  const [faceOnFrames, setFaceOnFrames] = useState([]);
-  const [dtlFrames, setDtlFrames] = useState([]);
-  const [faceOnExtracting, setFaceOnExtracting] = useState(false);
-  const [dtlExtracting, setDtlExtracting] = useState(false);
-  const [faceOnProgress, setFaceOnProgress] = useState('');
-  const [faceOnPct, setFaceOnPct] = useState(0);
-  const [dtlProgress, setDtlProgress] = useState('');
-  const [dtlPct, setDtlPct] = useState(0);
-  const [analyzing, setAnalyzing] = useState(false);
-  const [report, setReport] = useState(null);
-  const [error, setError] = useState('');
   const [club, setClub] = useState('');
   const [notes, setNotes] = useState('');
-  const [quota, setQuota] = useState(null);
   const [clubError, setClubError] = useState(false);
-  const [mobilePicker, setMobilePicker] = useState(null); // 'faceOn' | 'dtl' | null
-  const isMobile = () => window.innerWidth <= 768;
-  const faceOnVideoRef = useRef(null);
-  const faceOnCanvasRef = useRef(null);
-  const dtlVideoRef = useRef(null);
-  const dtlCanvasRef = useRef(null);
+  const [analyzing, setAnalyzing] = useState(false);
+  const [analyzeStatus, setAnalyzeStatus] = useState('');
+  const [error, setError] = useState('');
+  const [report, setReport] = useState(null);
+  const [quota, setQuota] = useState(null);
 
-  const cancelExtractRef = useRef(false);
-
-  async function extractFrames(videoElement, count, setFrames, setExtracting, setProgress, setPct) {
-    if (!videoElement) return;
-    cancelExtractRef.current = false;
-    setExtracting(true);
-    setFrames([]);
-    setProgress('Starting extraction...');
-    setPct(0);
-
-    const duration = videoElement.duration;
-    if (!duration || isNaN(duration) || duration === 0) {
-      setError('Could not read video duration. Try a different video format.');
-      setExtracting(false);
-      return;
-    }
-
-    const times = Array.from({ length: count }, (_, i) =>
-      count === 1 ? duration / 2 : (duration / (count - 1)) * i
-    );
-    const captured = [];
-    const canvas = document.createElement('canvas');
-    const MAX_W = 1280;
-
-    for (let i = 0; i < times.length; i++) {
-      if (cancelExtractRef.current) break;
-
-      const t = times[i];
-      setProgress(`Extracting frame ${i + 1} of ${count}...`);
-      setPct(Math.round(((i) / count) * 100));
-
-      const ok = await new Promise((res) => {
-        const TIMEOUT = 8000;
-        let done = false;
-        const timer = setTimeout(() => {
-          if (!done) { done = true; res(false); }
-        }, TIMEOUT);
-
-        videoElement.currentTime = t;
-        videoElement.onseeked = () => {
-          if (done) return;
-          done = true;
-          clearTimeout(timer);
-          try {
-            const vw = videoElement.videoWidth;
-            const vh = videoElement.videoHeight;
-            const scale = vw > MAX_W ? MAX_W / vw : 1;
-            const w = Math.round(vw * scale);
-            const h = Math.round(vh * scale);
-            canvas.width = w;
-            canvas.height = h;
-            canvas.getContext('2d').drawImage(videoElement, 0, 0, w, h);
-            const dataUrl = canvas.toDataURL('image/jpeg', 0.82);
-            const c2 = document.createElement('canvas');
-            c2.width = 160; c2.height = Math.round(160 * (h / w));
-            c2.getContext('2d').drawImage(videoElement, 0, 0, c2.width, c2.height);
-            captured.push({ data: dataUrl.split(',')[1], thumb: c2.toDataURL('image/jpeg', 0.5), time: t });
-            res(true);
-          } catch (e) {
-            res(false);
-          }
-        };
-      });
-
-      if (!ok) {
-        setError(`Frame ${i + 1} timed out. Video may be in an unsupported format. Try MP4 or use manual capture.`);
-        break;
-      }
-
-      await new Promise(r => setTimeout(r, 80));
-    }
-
-    setFrames(captured);
-    setExtracting(false);
-    setProgress('');
-    setPct(0);
-    if (captured.length > 0 && !cancelExtractRef.current) {
-      setError('');
-    }
-  }
-
-  function cancelExtract(setExtracting, setProgress, setPct) {
-    cancelExtractRef.current = true;
-    setExtracting(false);
-    setProgress('');
-    setPct(0);
-  }
-
-  function handleUpload(setUrl, setFrames, e) {
+  function handleUpload(setFile, setUrl, e) {
     const file = e.target.files[0];
     if (!file) return;
-    if (file.size > 100 * 1024 * 1024) { setError('Video must be under 100MB'); return; }
+    if (file.size > 150 * 1024 * 1024) { setError('Video must be under 150MB'); return; }
+    setFile(file);
     setUrl(URL.createObjectURL(file));
-    setFrames([]);
     setError('');
   }
 
-  function captureFrame(videoRef, canvasRef, setFrames) {
-    const vid = videoRef.current;
-    const canvas = canvasRef.current;
-    if (!vid || !canvas) return;
-    canvas.width = vid.videoWidth; canvas.height = vid.videoHeight;
-    canvas.getContext('2d').drawImage(vid, 0, 0);
-    const dataUrl = canvas.toDataURL('image/jpeg', 0.85);
-    setFrames(f => f.length >= 12 ? f : [...f, { data: dataUrl.split(',')[1], thumb: canvas.toDataURL('image/jpeg', 0.3), time: vid.currentTime }]);
-  }
-
-  const totalFrames = faceOnFrames.length + dtlFrames.length;
-  const isExtracting = faceOnExtracting || dtlExtracting;
-  const canAnalyze = totalFrames > 0 && !isExtracting && !analyzing && club !== '';
-
   function getViewType() {
-    if (faceOnFrames.length > 0 && dtlFrames.length > 0) return 'both angles';
-    if (faceOnFrames.length > 0) return 'face-on';
-    if (dtlFrames.length > 0) return 'down-the-line';
+    if (faceOnFile && dtlFile) return 'both angles';
+    if (faceOnFile) return 'face-on';
+    if (dtlFile) return 'down-the-line';
     return 'unknown';
   }
 
+  const hasVideo = faceOnFile || dtlFile;
+  const canAnalyze = hasVideo && club && !analyzing;
+
   async function runAnalysis() {
     if (!club) { setClubError(true); setError('Please select a club before analyzing.'); return; }
-    if (!canAnalyze) return;
-    setClubError(false); setAnalyzing(true); setError('');
+    if (!hasVideo) { setError('Please upload at least one swing video.'); return; }
+    setClubError(false);
+    setAnalyzing(true);
+    setError('');
+
     try {
-      const frames = [
-        ...faceOnFrames.map(f => ({ data: f.data, mediaType: 'image/jpeg' })),
-        ...dtlFrames.map(f => ({ data: f.data, mediaType: 'image/jpeg' })),
-      ];
+      // Convert primary video to base64
+      const primaryFile = faceOnFile || dtlFile;
+      setAnalyzeStatus('Uploading your swing video...');
+
+      const videoData = await new Promise((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onload = () => resolve(reader.result.split(',')[1]);
+        reader.onerror = reject;
+        reader.readAsDataURL(primaryFile);
+      });
+
+      setAnalyzeStatus('Gemini AI is watching your swing...');
+
       const result = await api.analyze({
-        frames, club, viewType: getViewType(),
-        notes: `${notes ? notes + '\n\n' : ''}Frames: ${faceOnFrames.length} face-on, ${dtlFrames.length} down-the-line.`,
+        videoData,
+        mimeType: primaryFile.type || 'video/mp4',
+        club,
+        viewType: getViewType(),
+        notes,
         title: `${club} — ${getViewType()}`,
       });
+
       setReport(result.report);
       setQuota(result.quota);
     } catch (err) {
-      setError(err.message);
+      setError(err.message || 'Analysis failed. Please try again.');
     } finally {
       setAnalyzing(false);
+      setAnalyzeStatus('');
     }
-  }
-
-  // Show mobile frame picker fullscreen when active
-  if (mobilePicker === 'faceOn') {
-    return <MobileFramePicker
-      videoUrl={faceOnUrl}
-      frames={faceOnFrames}
-      onFramesChange={setFaceOnFrames}
-      onDone={() => setMobilePicker(null)}
-      label="Face-on view"
-      frameCount={8}
-    />;
-  }
-  if (mobilePicker === 'dtl') {
-    return <MobileFramePicker
-      videoUrl={dtlUrl}
-      frames={dtlFrames}
-      onFramesChange={setDtlFrames}
-      onDone={() => setMobilePicker(null)}
-      label="Down-the-line view"
-      frameCount={4}
-    />;
   }
 
   if (report) {
     return <AnalysisReport report={report} quota={quota}
-      onNewAnalysis={() => { setReport(null); setFaceOnFrames([]); setDtlFrames([]); setFaceOnUrl(''); setDtlUrl(''); setClub(''); setNotes(''); }}
+      onNewAnalysis={() => { setReport(null); setFaceOnFile(null); setFaceOnUrl(''); setDtlFile(null); setDtlUrl(''); setClub(''); setNotes(''); }}
       userName={user.name} />;
   }
 
   return (
     <div style={{ minHeight: '100vh', background: '#f4f7f4', fontFamily: "'DM Sans', sans-serif" }}>
       <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@300;400;500&family=Playfair+Display:ital,wght@0,700;1,400&display=swap" rel="stylesheet" />
-      <style>{`
-        @media (max-width: 768px) {
-          .page-grid { grid-template-columns: 1fr !important; }
-          .video-grid { grid-template-columns: 1fr !important; }
-          .club-grid { grid-template-columns: repeat(3, 1fr) !important; }
-          .nav-name { display: none !important; }
-          .desktop-summary { display: none !important; }
-          .mobile-summary { display: block !important; }
-        }
-        @media (min-width: 769px) {
-          .mobile-summary { display: none !important; }
-        }
-      `}</style>
+      <style>{`@media (max-width: 768px) { .page-grid { grid-template-columns: 1fr !important; } .club-grid { grid-template-columns: repeat(3, 1fr) !important; } .nav-name { display: none !important; } .desktop-summary { display: none !important; } .mobile-analyze { display: block !important; } } @media (min-width: 769px) { .mobile-analyze { display: none !important; } }`}</style>
 
-      {/* Nav */}
       <nav style={{ background: '#fff', borderBottom: '1px solid #e5e9e5', padding: '0 20px', height: 56, display: 'flex', alignItems: 'center', justifyContent: 'space-between', position: 'sticky', top: 0, zIndex: 100 }}>
         <div onClick={() => navigate('/dashboard')} style={{ fontSize: 22, fontFamily: "'Playfair Display', serif", color: '#0a1a0a', fontWeight: 700, cursor: 'pointer' }}>
           Fore<span style={{ color: '#4ade80', fontStyle: 'italic' }}>AI</span>
         </div>
         <div style={{ display: 'flex', alignItems: 'center', gap: 16 }}>
           <span className="nav-name" style={{ fontSize: 13, color: '#6b7a6b' }}>Hey, {user.name.split(' ')[0]} 👋</span>
-          <button onClick={() => navigate('/dashboard')} style={btn.nav}>Dashboard</button>
-          <button onClick={() => navigate('/history')} style={btn.nav}>History</button>
-          <button onClick={logout} style={{ ...btn.nav, color: '#dc2626' }}>Sign out</button>
+          <button onClick={() => navigate('/dashboard')} style={nb}>Dashboard</button>
+          <button onClick={() => navigate('/history')} style={nb}>History</button>
+          <button onClick={logout} style={{ ...nb, color: '#dc2626' }}>Sign out</button>
         </div>
       </nav>
 
       <div style={{ maxWidth: 1200, margin: '0 auto', padding: '24px 16px' }}>
         <div style={{ marginBottom: 24 }}>
           <h1 style={{ fontSize: 28, fontFamily: "'Playfair Display', serif", fontWeight: 700, color: '#0a1a0a', margin: '0 0 6px' }}>Analyze your swing</h1>
-          <p style={{ fontSize: 14, color: '#6b7a6b', margin: 0 }}>Follow the steps below — upload at least one video to get started.</p>
+          <p style={{ fontSize: 14, color: '#6b7a6b', margin: 0 }}>
+            Upload your video, select your club, and Gemini AI will watch your entire swing and coach you.
+          </p>
         </div>
 
         <div className="page-grid" style={{ display: 'grid', gridTemplateColumns: '1fr 340px', gap: 24, alignItems: 'start' }}>
@@ -421,13 +212,7 @@ export default function AnalyzePage() {
 
             {/* Step 1 — Club */}
             <div style={card}>
-              <div style={stepHeader}>
-                <div style={stepNum}>1</div>
-                <div>
-                  <div style={stepTitle}>Select your club</div>
-                  <div style={stepSub}>Required — affects how your swing positions are evaluated</div>
-                </div>
-              </div>
+              <StepLabel number="1" title="Select your club" subtitle="Required — affects how your swing positions are evaluated" />
               <div className="club-grid" style={{ display: 'grid', gridTemplateColumns: 'repeat(5, 1fr)', gap: 7 }}>
                 {CLUBS.map((c) => (
                   <button key={c} onClick={() => { setClub(c); setClubError(false); setError(''); }} style={{
@@ -443,57 +228,40 @@ export default function AnalyzePage() {
 
             {/* Step 2 — Videos */}
             <div style={card}>
-              <div style={stepHeader}>
-                <div style={stepNum}>2</div>
-                <div>
-                  <div style={stepTitle}>Upload your swing video(s)</div>
-                  <div style={stepSub}>Face-on is required — down-the-line optional but recommended for deeper analysis</div>
-                </div>
-              </div>
-              <div className="video-grid" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16 }}>
-                <VideoUploader label="Face-on view" badge="Required" badgeColor="green"
+              <StepLabel number="2" title="Upload your swing video(s)" subtitle="Face-on is recommended — down-the-line optional for deeper analysis" />
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16 }}>
+                <VideoDropzone
+                  label="Face-on view" badge="Recommended" badgeColor="green"
                   hint="Film from directly in front. Best for rotation, posture & weight transfer."
-                  frameCount={8} videoUrl={faceOnUrl} frames={faceOnFrames} extracting={faceOnExtracting}
-                  extractProgress={faceOnProgress} extractPct={faceOnPct}
-                  onUpload={(e) => handleUpload(setFaceOnUrl, setFaceOnFrames, e)}
-                  onAutoExtract={(vid) => extractFrames(vid, 8, setFaceOnFrames, setFaceOnExtracting, setFaceOnProgress, setFaceOnPct)}
-                  onCapture={() => captureFrame(faceOnVideoRef, faceOnCanvasRef, setFaceOnFrames)}
-                  onRemoveFrame={(i) => setFaceOnFrames(f => f.filter((_, idx) => idx !== i))}
-                  onClear={() => { setFaceOnUrl(''); setFaceOnFrames([]); }}
-                  onCancelExtract={() => cancelExtract(setFaceOnExtracting, setFaceOnProgress, setFaceOnPct)}
-                  onMobilePick={() => setMobilePicker('faceOn')}
-                  videoRef={faceOnVideoRef} canvasRef={faceOnCanvasRef} />
-                <VideoUploader label="Down-the-line view" badge="Optional" badgeColor="gray"
+                  videoUrl={faceOnUrl} videoFile={faceOnFile}
+                  onUpload={(e) => handleUpload(setFaceOnFile, setFaceOnUrl, e)}
+                  onClear={() => { setFaceOnFile(null); setFaceOnUrl(''); }}
+                />
+                <VideoDropzone
+                  label="Down-the-line view" badge="Optional" badgeColor="gray"
                   hint="Film from behind along target line. Best for club path & plane."
-                  frameCount={4} videoUrl={dtlUrl} frames={dtlFrames} extracting={dtlExtracting}
-                  extractProgress={dtlProgress} extractPct={dtlPct}
-                  onUpload={(e) => handleUpload(setDtlUrl, setDtlFrames, e)}
-                  onAutoExtract={(vid) => extractFrames(vid, 4, setDtlFrames, setDtlExtracting, setDtlProgress, setDtlPct)}
-                  onCapture={() => captureFrame(dtlVideoRef, dtlCanvasRef, setDtlFrames)}
-                  onRemoveFrame={(i) => setDtlFrames(f => f.filter((_, idx) => idx !== i))}
-                  onClear={() => { setDtlUrl(''); setDtlFrames([]); }}
-                  onCancelExtract={() => cancelExtract(setDtlExtracting, setDtlProgress, setDtlPct)}
-                  onMobilePick={() => setMobilePicker('dtl')}
-                  videoRef={dtlVideoRef} canvasRef={dtlCanvasRef} />
+                  videoUrl={dtlUrl} videoFile={dtlFile}
+                  onUpload={(e) => handleUpload(setDtlFile, setDtlUrl, e)}
+                  onClear={() => { setDtlFile(null); setDtlUrl(''); }}
+                />
               </div>
+              {faceOnFile && dtlFile && (
+                <div style={{ marginTop: 12, padding: '10px 14px', background: '#f0fdf4', borderRadius: 8, fontSize: 13, color: '#16a34a', fontWeight: 500 }}>
+                  🎯 Two angles uploaded — Gemini will analyze both for the most complete coaching report!
+                </div>
+              )}
             </div>
 
             {/* Step 3 — Notes */}
             <div style={card}>
-              <div style={stepHeader}>
-                <div style={stepNum}>3</div>
-                <div>
-                  <div style={stepTitle}>Notes for your coach</div>
-                  <div style={stepSub}>Optional — tell ForeAI what you're working on or struggling with</div>
-                </div>
-              </div>
+              <StepLabel number="3" title="Notes for your coach" subtitle="Optional — tell ForeAI what you're working on or struggling with" />
               <textarea value={notes} onChange={(e) => setNotes(e.target.value)}
                 placeholder="e.g. I'm struggling with slicing, feel like I'm coming over the top, or losing power at impact..."
                 style={{ width: '100%', padding: 12, border: '1.5px solid #d1d5d1', borderRadius: 8, fontSize: 14, color: '#0a1a0a', background: '#fff', boxSizing: 'border-box', fontFamily: "'DM Sans', sans-serif", outline: 'none', height: 90, resize: 'vertical' }} />
             </div>
 
-            {/* Mobile-only analyze button */}
-            <div className="mobile-summary">
+            {/* Mobile analyze button */}
+            <div className="mobile-analyze" style={{ display: 'none' }}>
               {error && <div style={{ background: '#fef2f2', border: '1px solid #fecaca', borderRadius: 10, padding: '12px 14px', fontSize: 13, color: '#dc2626', marginBottom: 12 }}>{error}</div>}
               <button onClick={runAnalysis} disabled={!canAnalyze} style={{
                 width: '100%', padding: 18, background: !canAnalyze ? '#d1d5d1' : '#0a1a0a',
@@ -501,25 +269,28 @@ export default function AnalyzePage() {
                 fontSize: 16, fontWeight: 500, cursor: !canAnalyze ? 'not-allowed' : 'pointer',
                 fontFamily: "'DM Sans', sans-serif",
               }}>
-                {analyzing ? '🤖 Analyzing your swing...' : isExtracting ? '⏳ Extracting frames...' : canAnalyze ? `🏌️ Analyze ${totalFrames} frames →` : '🏌️ Analyze swing →'}
+                {analyzing ? `🤖 ${analyzeStatus || 'Analyzing...'}` : canAnalyze ? `🏌️ Analyze my swing →` : '🏌️ Analyze swing →'}
               </button>
-              {analyzing && <div style={{ textAlign: 'center', fontSize: 12, color: '#6b7a6b', lineHeight: 1.8, marginTop: 12 }}>Examining your {club} swing...<br />Checking setup, rotation, club plane & impact.</div>}
+              {analyzing && (
+                <div style={{ textAlign: 'center', fontSize: 12, color: '#6b7a6b', lineHeight: 1.8, marginTop: 12 }}>
+                  Gemini AI is watching your full swing video...<br />This takes about 20-30 seconds.
+                </div>
+              )}
             </div>
           </div>
 
-          {/* RIGHT — sticky summary (desktop only) */}
+          {/* RIGHT — sticky summary */}
           <div className="desktop-summary" style={{ position: 'sticky', top: 72, display: 'flex', flexDirection: 'column', gap: 12 }}>
             <div style={{ ...card, background: canAnalyze ? '#f0fdf4' : '#f8faf8', border: canAnalyze ? '1.5px solid #bbf7d0' : '1px solid #e5e9e5' }}>
               <div style={{ fontSize: 11, fontWeight: 500, color: '#9ca39c', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: 12 }}>Session summary</div>
               <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
                 <SummaryRow label="Club" value={club || 'Not selected'} done={!!club} required />
-                <SummaryRow label="Face-on frames" value={faceOnExtracting ? 'Extracting...' : faceOnFrames.length > 0 ? `${faceOnFrames.length} frames` : 'Not uploaded'} done={faceOnFrames.length > 0} required />
-                <SummaryRow label="Down-the-line" value={dtlExtracting ? 'Extracting...' : dtlFrames.length > 0 ? `${dtlFrames.length} frames` : 'Not uploaded'} done={dtlFrames.length > 0} required={false} />
-                <SummaryRow label="Total frames" value={totalFrames > 0 ? `${totalFrames} frames` : '—'} done={totalFrames > 0} />
+                <SummaryRow label="Face-on video" value={faceOnFile ? `✓ ${(faceOnFile.size/1024/1024).toFixed(1)}MB` : 'Not uploaded'} done={!!faceOnFile} />
+                <SummaryRow label="Down-the-line" value={dtlFile ? `✓ ${(dtlFile.size/1024/1024).toFixed(1)}MB` : 'Not uploaded'} done={!!dtlFile} />
               </div>
-              {totalFrames > 0 && club && (
+              {canAnalyze && (
                 <div style={{ marginTop: 12, padding: '8px 12px', background: '#fff', borderRadius: 8, fontSize: 12, color: '#16a34a', fontWeight: 500 }}>
-                  {faceOnFrames.length > 0 && dtlFrames.length > 0 ? '🎯 Dual-angle — best possible analysis!' : '✓ Ready — add down-the-line for more depth'}
+                  {faceOnFile && dtlFile ? '🎯 Dual-angle — best possible analysis!' : '✓ Ready to analyze!'}
                 </div>
               )}
             </div>
@@ -532,11 +303,14 @@ export default function AnalyzePage() {
               fontSize: 15, fontWeight: 500, cursor: !canAnalyze ? 'not-allowed' : 'pointer',
               fontFamily: "'DM Sans', sans-serif", width: '100%',
             }}>
-              {analyzing ? '🤖 Analyzing your swing...' : isExtracting ? '⏳ Extracting frames...' : canAnalyze ? `🏌️ Analyze ${totalFrames} frames →` : '🏌️ Analyze swing →'}
+              {analyzing ? `🤖 ${analyzeStatus || 'Analyzing...'}` : canAnalyze ? `🏌️ Analyze my swing →` : '🏌️ Analyze swing →'}
             </button>
 
-            {analyzing && <div style={{ textAlign: 'center', fontSize: 12, color: '#6b7a6b', lineHeight: 1.8 }}>Examining your {club} swing...<br />Checking setup, rotation, club plane & impact.</div>}
-            {quota && <div style={{ textAlign: 'center', fontSize: 12, color: '#9ca39c' }}>{quota.remaining} free analysis{quota.remaining !== 1 ? 'es' : ''} remaining today</div>}
+            {analyzing && (
+              <div style={{ textAlign: 'center', fontSize: 12, color: '#6b7a6b', lineHeight: 1.8 }}>
+                Gemini AI is watching your full swing...<br />This takes about 20-30 seconds.
+              </div>
+            )}
           </div>
         </div>
       </div>
@@ -545,13 +319,4 @@ export default function AnalyzePage() {
 }
 
 const card = { background: '#fff', borderRadius: 14, padding: 20, border: '1px solid #e5e9e5' };
-const stepNum = { width: 28, height: 28, borderRadius: '50%', background: '#0a1a0a', color: '#4ade80', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 13, fontWeight: 700, flexShrink: 0 };
-const stepHeader = { display: 'flex', alignItems: 'center', gap: 12, marginBottom: 16 };
-const stepTitle = { fontSize: 14, fontWeight: 500, color: '#0a1a0a' };
-const stepSub = { fontSize: 12, color: '#9ca39c', marginTop: 1 };
-const btn = {
-  nav: { fontSize: 13, color: '#374237', background: 'none', border: 'none', cursor: 'pointer', fontFamily: "'DM Sans', sans-serif", fontWeight: 500 },
-  primary: { padding: '7px 12px', background: '#16a34a', color: '#fff', border: 'none', borderRadius: 7, fontSize: 12, fontWeight: 500, cursor: 'pointer', fontFamily: "'DM Sans', sans-serif" },
-  secondary: { padding: '7px 12px', background: '#f4f7f4', color: '#374237', border: '1px solid #d1d5d1', borderRadius: 7, fontSize: 12, cursor: 'pointer', fontFamily: "'DM Sans', sans-serif" },
-  ghost: { padding: '4px 8px', background: 'none', color: '#9ca39c', border: 'none', fontSize: 11, cursor: 'pointer', fontFamily: "'DM Sans', sans-serif" },
-};
+const nb = { fontSize: 13, color: '#374237', background: 'none', border: 'none', cursor: 'pointer', fontFamily: "'DM Sans', sans-serif", fontWeight: 500 };
