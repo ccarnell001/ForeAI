@@ -47,12 +47,9 @@ app.use((err, req, res, next) => {
 
 async function start() {
   await initDB();
-  const server = app.listen(PORT, () => {
+  app.listen(PORT, () => {
     console.log(`🏌️  ForeAI backend running on port ${PORT}`);
   });
-  // Increase timeout for Gemini video analysis (3 minutes)
-  server.timeout = 180000;
-  server.keepAliveTimeout = 180000;
 }
 
 start();

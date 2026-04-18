@@ -142,8 +142,18 @@ export default function AnalyzePage() {
     setError('');
 
     try {
-      // Convert primary video to base64
       const primaryFile = faceOnFile || dtlFile;
+      setAnalyzeStatus('Preparing your video...');
+
+      // Warn if video is very large
+      const sizeMB = primaryFile.size / 1024 / 1024;
+      if (sizeMB > 80) {
+        setError('Video is too large. Please trim it to under 30 seconds and try again.');
+        setAnalyzing(false);
+        setAnalyzeStatus('');
+        return;
+      }
+
       setAnalyzeStatus('Uploading your swing video...');
 
       const videoData = await new Promise((resolve, reject) => {
@@ -153,7 +163,7 @@ export default function AnalyzePage() {
         reader.readAsDataURL(primaryFile);
       });
 
-      setAnalyzeStatus('Gemini AI is watching your swing...');
+      setAnalyzeStatus('Gemini AI is watching your swing... (20-40 seconds)');
 
       const result = await api.analyze({
         videoData,

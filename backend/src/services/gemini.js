@@ -86,13 +86,30 @@ ${notes ? `Student notes: ${notes}` : ''}
 
 Watch the full swing from start to finish. Provide thorough, encouraging analysis with specific actionable feedback. Return ONLY valid JSON matching the specified structure — no markdown, no backticks, no preamble.`;
 
-    const response = await genai.models.generateContent({
-      model: 'gemini-2.0-flash',
-      contents: [
-        { role: 'user', parts: [{ fileData: { mimeType: file.mimeType, fileUri: file.uri } }, { text: prompt }] }
-      ],
-      config: { systemInstruction: SYSTEM_PROMPT, temperature: 0.3 },
-    });
+    // Retry with exponential backoff for rate limit errors
+    let response;
+    let attempts = 0;
+    while (attempts < 4) {
+      try {
+        response = await genai.models.generateContent({
+          model: 'gemini-2.0-flash',
+          contents: [
+            { role: 'user', parts: [{ fileData: { mimeType: file.mimeType, fileUri: file.uri } }, { text: prompt }] }
+          ],
+          config: { systemInstruction: SYSTEM_PROMPT, temperature: 0.3 },
+        });
+        break;
+      } catch (err) {
+        attempts++;
+        if (err?.status === 429 && attempts < 4) {
+          const wait = attempts * 8000;
+          console.log(`Rate limited, retrying in ${wait/1000}s (attempt ${attempts}/3)...`);
+          await new Promise(r => setTimeout(r, wait));
+        } else {
+          throw err;
+        }
+      }
+    }
 
     const text = response.text;
     const cleaned = text.replace(/```json|```/g, '').trim();
