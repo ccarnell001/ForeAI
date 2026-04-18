@@ -183,7 +183,7 @@ export default function AnalyzePage() {
   return (
     <div style={{ minHeight: '100vh', background: '#f4f7f4', fontFamily: "'DM Sans', sans-serif" }}>
       <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@300;400;500&family=Playfair+Display:ital,wght@0,700;1,400&display=swap" rel="stylesheet" />
-      <style>{`@media (max-width: 768px) { .page-grid { grid-template-columns: 1fr !important; } .club-grid { grid-template-columns: repeat(3, 1fr) !important; } .nav-name { display: none !important; } .desktop-summary { display: none !important; } .mobile-analyze { display: block !important; } } @media (min-width: 769px) { .mobile-analyze { display: none !important; } }`}</style>
+      <style>{`@media (max-width: 768px) { .page-grid { grid-template-columns: 1fr !important; } .club-grid { grid-template-columns: repeat(3, 1fr) !important; } .nav-name { display: none !important; } .desktop-summary { display: none !important; } .mobile-analyze { display: block !important; } .video-upload-grid { grid-template-columns: 1fr !important; } } @media (min-width: 769px) { .mobile-analyze { display: none !important; } }`}</style>
 
       <nav style={{ background: '#fff', borderBottom: '1px solid #e5e9e5', padding: '0 20px', height: 56, display: 'flex', alignItems: 'center', justifyContent: 'space-between', position: 'sticky', top: 0, zIndex: 100 }}>
         <div onClick={() => navigate('/dashboard')} style={{ fontSize: 22, fontFamily: "'Playfair Display', serif", color: '#0a1a0a', fontWeight: 700, cursor: 'pointer' }}>
@@ -229,7 +229,7 @@ export default function AnalyzePage() {
             {/* Step 2 — Videos */}
             <div style={card}>
               <StepLabel number="2" title="Upload your swing video(s)" subtitle="Face-on is recommended — down-the-line optional for deeper analysis" />
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16 }}>
+              <div className="video-upload-grid" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16 }}>
                 <VideoDropzone
                   label="Face-on view" badge="Recommended" badgeColor="green"
                   hint="Film from directly in front. Best for rotation, posture & weight transfer."
