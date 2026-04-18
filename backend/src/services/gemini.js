@@ -88,8 +88,8 @@ Watch the full swing from start to finish. Provide thorough, encouraging analysi
 
     // Retry with exponential backoff for rate limit errors
     let response;
-    let attempts = 0;
-    while (attempts < 4) {
+    let retryAttempts = 0;
+    while (retryAttempts < 4) {
       try {
         response = await genai.models.generateContent({
           model: 'gemini-2.0-flash',
@@ -100,10 +100,10 @@ Watch the full swing from start to finish. Provide thorough, encouraging analysi
         });
         break;
       } catch (err) {
-        attempts++;
-        if (err?.status === 429 && attempts < 4) {
-          const wait = attempts * 8000;
-          console.log(`Rate limited, retrying in ${wait/1000}s (attempt ${attempts}/3)...`);
+        retryAttempts++;
+        if (err?.status === 429 && retryAttempts < 4) {
+          const wait = retryAttempts * 8000;
+          console.log(`Rate limited, retrying in ${wait/1000}s (attempt ${retryAttempts}/3)...`);
           await new Promise(r => setTimeout(r, wait));
         } else {
           throw err;
