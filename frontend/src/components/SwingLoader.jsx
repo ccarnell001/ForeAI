@@ -2,94 +2,118 @@ export default function SwingLoader({ status }) {
   return (
     <div style={{
       display: 'flex', flexDirection: 'column', alignItems: 'center',
-      justifyContent: 'center', padding: '40px 20px', fontFamily: "'DM Sans', sans-serif",
+      justifyContent: 'center', padding: '48px 24px',
+      fontFamily: "'DM Sans', sans-serif",
     }}>
+      <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@300;400;500&family=Playfair+Display:ital,wght@0,700;1,400&display=swap" rel="stylesheet" />
       <style>{`
-        @keyframes swing {
-          0%   { transform: rotate(-35deg); }
-          50%  { transform: rotate(35deg); }
-          100% { transform: rotate(-35deg); }
+        @keyframes ballBounce {
+          0%   { transform: translateX(-60px) translateY(0px); }
+          25%  { transform: translateX(-20px) translateY(-30px); }
+          50%  { transform: translateX(20px)  translateY(0px); }
+          75%  { transform: translateX(50px)  translateY(-20px); }
+          100% { transform: translateX(-60px) translateY(0px); }
         }
-        @keyframes ballRoll {
-          0%   { transform: translateX(-8px); opacity: 0.3; }
-          50%  { transform: translateX(8px);  opacity: 1; }
-          100% { transform: translateX(-8px); opacity: 0.3; }
+        @keyframes shadowPulse {
+          0%,100% { transform: translateX(-60px) scaleX(0.8); opacity: 0.4; }
+          25%      { transform: translateX(-20px) scaleX(0.6); opacity: 0.2; }
+          50%      { transform: translateX(20px)  scaleX(0.8); opacity: 0.4; }
+          75%      { transform: translateX(50px)  scaleX(0.6); opacity: 0.2; }
         }
-        @keyframes dot1 { 0%,80%,100%{opacity:0.2} 40%{opacity:1} }
-        @keyframes dot2 { 0%,80%,100%{opacity:0.2} 40%{opacity:1} }
-        @keyframes dot3 { 0%,80%,100%{opacity:0.2} 40%{opacity:1} }
-        @keyframes fadeIn { from{opacity:0;transform:translateY(6px)} to{opacity:1;transform:translateY(0)} }
+        @keyframes flagWave {
+          0%,100% { transform: skewX(0deg); }
+          50%      { transform: skewX(-8deg); }
+        }
+        @keyframes pulse {
+          0%,100% { opacity: 1; }
+          50%      { opacity: 0.5; }
+        }
+        @keyframes fadeUp {
+          from { opacity: 0; transform: translateY(8px); }
+          to   { opacity: 1; transform: translateY(0); }
+        }
       `}</style>
 
-      {/* Golfer silhouette swinging */}
-      <div style={{ position: 'relative', width: 80, height: 80, marginBottom: 24 }}>
-        <svg viewBox="0 0 80 80" style={{ width: 80, height: 80, animation: 'swing 1.4s ease-in-out infinite', transformOrigin: '40px 24px' }}>
-          {/* Head */}
-          <circle cx="40" cy="14" r="8" fill="#0a1a0a" />
-          {/* Body */}
-          <line x1="40" y1="22" x2="40" y2="50" stroke="#0a1a0a" strokeWidth="3.5" strokeLinecap="round"/>
-          {/* Left arm + club */}
-          <line x1="40" y1="32" x2="18" y2="44" stroke="#0a1a0a" strokeWidth="3" strokeLinecap="round"/>
-          <line x1="18" y1="44" x2="10" y2="68" stroke="#0a1a0a" strokeWidth="2" strokeLinecap="round"/>
-          {/* Right arm */}
-          <line x1="40" y1="32" x2="58" y2="40" stroke="#0a1a0a" strokeWidth="3" strokeLinecap="round"/>
-          {/* Left leg */}
-          <line x1="40" y1="50" x2="30" y2="72" stroke="#0a1a0a" strokeWidth="3" strokeLinecap="round"/>
-          {/* Right leg */}
-          <line x1="40" y1="50" x2="52" y2="70" stroke="#0a1a0a" strokeWidth="3" strokeLinecap="round"/>
-        </svg>
+      {/* Golf scene */}
+      <div style={{ position: 'relative', width: 180, height: 100, marginBottom: 32 }}>
 
-        {/* Golf ball rolling */}
+        {/* Grass line */}
+        <div style={{ position: 'absolute', bottom: 18, left: 0, right: 0, height: 2, background: '#16a34a', borderRadius: 1 }} />
+
+        {/* Flag pin */}
+        <div style={{ position: 'absolute', bottom: 18, right: 20 }}>
+          <div style={{ width: 2, height: 40, background: '#9ca39c', borderRadius: 1 }} />
+          <div style={{
+            position: 'absolute', top: 0, left: 2,
+            width: 20, height: 14,
+            background: '#dc2626', clipPath: 'polygon(0 0, 100% 50%, 0 100%)',
+            animation: 'flagWave 1.5s ease-in-out infinite',
+            transformOrigin: 'left center',
+          }} />
+          {/* Hole */}
+          <div style={{ position: 'absolute', bottom: -4, left: -6, width: 14, height: 5, background: '#0a1a0a', borderRadius: '50%', opacity: 0.4 }} />
+        </div>
+
+        {/* Rolling golf ball */}
         <div style={{
-          position: 'absolute', bottom: -4, left: '50%',
-          width: 10, height: 10, borderRadius: '50%',
-          background: '#fff', border: '1.5px solid #d1d5d1',
-          animation: 'ballRoll 1.4s ease-in-out infinite',
-          transform: 'translateX(-50%)',
-        }} />
+          position: 'absolute', bottom: 22,
+          left: '50%',
+          animation: 'ballBounce 2s ease-in-out infinite',
+        }}>
+          <div style={{ width: 16, height: 16, borderRadius: '50%', background: '#fff', border: '1.5px solid #d1d5d1', position: 'relative' }}>
+            {/* Dimples */}
+            <div style={{ position: 'absolute', top: 4, left: 4, width: 3, height: 3, borderRadius: '50%', background: 'rgba(0,0,0,0.12)' }} />
+            <div style={{ position: 'absolute', top: 6, left: 8, width: 2, height: 2, borderRadius: '50%', background: 'rgba(0,0,0,0.1)' }} />
+            <div style={{ position: 'absolute', top: 9, left: 4, width: 2, height: 2, borderRadius: '50%', background: 'rgba(0,0,0,0.1)' }} />
+          </div>
+          {/* Ball shadow */}
+          <div style={{ width: 12, height: 4, background: 'rgba(0,0,0,0.15)', borderRadius: '50%', margin: '2px auto 0', animation: 'shadowPulse 2s ease-in-out infinite' }} />
+        </div>
+
+        {/* ForeAI logo small */}
+        <div style={{ position: 'absolute', top: 0, left: 0, fontSize: 16, fontFamily: "'Playfair Display', serif", fontWeight: 700, color: '#0a1a0a' }}>
+          Fore<span style={{ color: '#4ade80', fontStyle: 'italic' }}>AI</span>
+        </div>
       </div>
 
       {/* Status text */}
-      <div style={{ fontSize: 15, fontWeight: 500, color: '#0a1a0a', marginBottom: 8, textAlign: 'center', animation: 'fadeIn 0.4s ease' }}>
-        {status || 'Gemini AI is analyzing your swing...'}
+      <div style={{ fontSize: 16, fontWeight: 500, color: '#0a1a0a', marginBottom: 6, textAlign: 'center', animation: 'fadeUp 0.4s ease' }}>
+        {status?.includes('watching') ? 'Gemini is watching your swing...' :
+         status?.includes('Uploading') ? 'Uploading your video...' :
+         status?.includes('Preparing') ? 'Preparing your video...' :
+         'Analyzing your swing...'}
       </div>
 
-      {/* Animated dots */}
-      <div style={{ display: 'flex', gap: 5, marginBottom: 20 }}>
-        {[0, 0.2, 0.4].map((delay, i) => (
-          <div key={i} style={{
-            width: 7, height: 7, borderRadius: '50%', background: '#4ade80',
-            animation: `dot${i+1} 1.2s ${delay}s ease-in-out infinite`,
-          }} />
-        ))}
+      <div style={{ fontSize: 13, color: '#9ca39c', marginBottom: 28, textAlign: 'center', lineHeight: 1.6 }}>
+        {status?.includes('watching') ? 'Examining every position in detail' : 'This takes about 20–40 seconds'}
       </div>
 
       {/* Progress steps */}
-      <div style={{ display: 'flex', flexDirection: 'column', gap: 8, width: '100%', maxWidth: 300 }}>
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 10, width: '100%', maxWidth: 280 }}>
         {[
-          { label: 'Video uploaded', done: status?.includes('watching') || status?.includes('Analyzing') },
-          { label: 'Gemini watching your swing', done: status?.includes('Analyzing') },
-          { label: 'Generating coaching report', done: false },
+          { label: 'Video uploaded to Gemini', done: status?.includes('watching') || status?.includes('Analyzing') },
+          { label: 'AI watching your full swing', done: false, active: status?.includes('watching') },
+          { label: 'Generating coaching report', done: false, active: false },
         ].map((step, i) => (
           <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
             <div style={{
-              width: 20, height: 20, borderRadius: '50%', flexShrink: 0,
-              background: step.done ? '#16a34a' : '#e5e9e5',
+              width: 22, height: 22, borderRadius: '50%', flexShrink: 0,
+              background: step.done ? '#16a34a' : step.active ? '#0a1a0a' : '#e5e9e5',
               display: 'flex', alignItems: 'center', justifyContent: 'center',
               fontSize: 11, color: '#fff', fontWeight: 700,
               transition: 'background 0.5s',
+              animation: step.active ? 'pulse 1.5s ease-in-out infinite' : 'none',
             }}>
               {step.done ? '✓' : i + 1}
             </div>
-            <div style={{ fontSize: 13, color: step.done ? '#16a34a' : '#9ca39c', fontWeight: step.done ? 500 : 400 }}>
+            <div style={{
+              fontSize: 13, fontWeight: step.done || step.active ? 500 : 400,
+              color: step.done ? '#16a34a' : step.active ? '#0a1a0a' : '#9ca39c',
+            }}>
               {step.label}
             </div>
           </div>
         ))}
-      </div>
-
-      <div style={{ marginTop: 20, fontSize: 12, color: '#9ca39c', textAlign: 'center', lineHeight: 1.6 }}>
-        This takes 20–40 seconds — Gemini is<br />watching your entire swing in detail.
       </div>
     </div>
   );
