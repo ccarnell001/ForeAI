@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../components/AuthContext.jsx';
 import { api } from '../api/index.js';
 import AnalysisReport from '../components/AnalysisReport.jsx';
+import SwingLoader from '../components/SwingLoader.jsx';
 
 const CLUBS = ['Driver','3-Wood','5-Wood','Hybrid','3-Iron','4-Iron','5-Iron','6-Iron','7-Iron','8-Iron','9-Iron','PW','SW','LW','Putter'];
 
@@ -20,7 +21,7 @@ function StepLabel({ number, title, subtitle }) {
   );
 }
 
-function VideoDropzone({ label, badge, badgeColor, hint, videoUrl, videoFile, onUpload, onClear }) {
+function VideoDropzone({ label, badge, badgeColor, hint, videoUrl, videoFile, videoDuration, onUpload, onClear }) {
   const galleryRef = useRef(null);
   const cameraRef = useRef(null);
 
@@ -76,14 +77,25 @@ function VideoDropzone({ label, badge, badgeColor, hint, videoUrl, videoFile, on
         <div>
           <video src={videoUrl} controls playsInline style={{ width: '100%', borderRadius: 8, background: '#000', maxHeight: 220 }} />
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginTop: 10 }}>
-            <div style={{ fontSize: 12, color: '#16a34a', fontWeight: 500 }}>
-              ✓ {videoFile?.name || 'Video ready'}
+            <div style={{ fontSize: 12, color: videoDuration > 15 ? '#d97706' : '#16a34a', fontWeight: 500 }}>
+              {videoDuration > 15 ? '⚠️' : '✓'} {videoFile?.name || 'Video ready'}
               {videoFile && <span style={{ color: '#9ca39c', fontWeight: 400 }}> · {(videoFile.size / 1024 / 1024).toFixed(1)}MB</span>}
+              {videoDuration > 0 && <span style={{ color: videoDuration > 15 ? '#d97706' : '#9ca39c', fontWeight: 400 }}> · {videoDuration.toFixed(1)}s</span>}
             </div>
             <button onClick={onClear} style={{ fontSize: 12, color: '#dc2626', background: 'none', border: 'none', cursor: 'pointer', fontFamily: "'DM Sans', sans-serif" }}>
               Remove
             </button>
           </div>
+          {videoDuration > 15 && videoDuration <= 20 && (
+            <div style={{ marginTop: 8, padding: '8px 12px', background: '#fffbeb', border: '1px solid #fed7aa', borderRadius: 8, fontSize: 12, color: '#92400e', lineHeight: 1.5 }}>
+              ⚠️ Your video is {videoDuration.toFixed(0)}s long. For best results trim it to just the swing (3–8 seconds). You can still analyze but quality may be affected.
+            </div>
+          )}
+          {videoDuration > 20 && (
+            <div style={{ marginTop: 8, padding: '8px 12px', background: '#fef2f2', border: '1px solid #fecaca', borderRadius: 8, fontSize: 12, color: '#dc2626', lineHeight: 1.5 }}>
+              ✗ Video is too long ({videoDuration.toFixed(0)}s). Please trim to just your swing — 3 to 15 seconds max. Most phones have a built-in trim tool in the Photos app.
+            </div>
+          )}
         </div>
       )}
     </div>
@@ -107,6 +119,8 @@ export default function AnalyzePage() {
   const [dtlFile, setDtlFile] = useState(null);
   const [dtlUrl, setDtlUrl] = useState('');
   const [club, setClub] = useState('');
+  const [faceOnDuration, setFaceOnDuration] = useState(0);
+  const [dtlDuration, setDtlDuration] = useState(0);
   const [notes, setNotes] = useState('');
   const [clubError, setClubError] = useState(false);
   const [analyzing, setAnalyzing] = useState(false);
@@ -115,13 +129,20 @@ export default function AnalyzePage() {
   const [report, setReport] = useState(null);
   const [quota, setQuota] = useState(null);
 
-  function handleUpload(setFile, setUrl, e) {
+  function handleUpload(setFile, setUrl, setDuration, e) {
     const file = e.target.files[0];
     if (!file) return;
     if (file.size > 150 * 1024 * 1024) { setError('Video must be under 150MB'); return; }
+    const url = URL.createObjectURL(file);
     setFile(file);
-    setUrl(URL.createObjectURL(file));
+    setUrl(url);
+    setDuration(0);
     setError('');
+    // Read video duration
+    const vid = document.createElement('video');
+    vid.preload = 'metadata';
+    vid.onloadedmetadata = () => { setDuration(vid.duration); URL.revokeObjectURL(vid.src); };
+    vid.src = url;
   }
 
   function getViewType() {
@@ -132,11 +153,14 @@ export default function AnalyzePage() {
   }
 
   const hasVideo = faceOnFile || dtlFile;
-  const canAnalyze = hasVideo && club && !analyzing;
+  const maxDuration = Math.max(faceOnDuration, dtlDuration);
+  const videoTooLong = maxDuration > 20;
+  const canAnalyze = hasVideo && club && !analyzing && !videoTooLong;
 
   async function runAnalysis() {
     if (!club) { setClubError(true); setError('Please select a club before analyzing.'); return; }
     if (!hasVideo) { setError('Please upload at least one swing video.'); return; }
+    if (videoTooLong) { setError(`Video is ${maxDuration.toFixed(0)}s — please trim to under 20 seconds and try again.`); return; }
     setClubError(false);
     setAnalyzing(true);
     setError('');
@@ -165,6 +189,13 @@ export default function AnalyzePage() {
 
       setAnalyzeStatus('Gemini AI is watching your swing... (20-40 seconds)');
 
+      // 90 second timeout safety net
+      const timeoutId = setTimeout(() => {
+        setAnalyzing(false);
+        setAnalyzeStatus('');
+        setError('Analysis timed out — please try again with a shorter video (under 15 seconds).');
+      }, 90000);
+
       const result = await api.analyze({
         videoData,
         mimeType: primaryFile.type || 'video/mp4',
@@ -174,6 +205,7 @@ export default function AnalyzePage() {
         title: `${club} — ${getViewType()}`,
       });
 
+      clearTimeout(timeoutId);
       setReport(result.report);
       setQuota(result.quota);
     } catch (err) {
@@ -182,6 +214,23 @@ export default function AnalyzePage() {
       setAnalyzing(false);
       setAnalyzeStatus('');
     }
+  }
+
+  if (analyzing) {
+    return (
+      <div style={{ minHeight: '100vh', background: '#f4f7f4', display: 'flex', flexDirection: 'column', fontFamily: "'DM Sans', sans-serif" }}>
+        <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@300;400;500&family=Playfair+Display:ital,wght@0,700;1,400&display=swap" rel="stylesheet" />
+        <nav style={{ background: '#fff', borderBottom: '1px solid #e5e9e5', padding: '0 20px', height: 56, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+          <div style={{ fontSize: 22, fontFamily: "'Playfair Display', serif", color: '#0a1a0a', fontWeight: 700 }}>
+            Fore<span style={{ color: '#4ade80', fontStyle: 'italic' }}>AI</span>
+          </div>
+          <div style={{ fontSize: 13, color: '#9ca39c' }}>Analyzing {club} swing...</div>
+        </nav>
+        <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+          <SwingLoader status={analyzeStatus} />
+        </div>
+      </div>
+    );
   }
 
   if (report) {
@@ -242,17 +291,17 @@ export default function AnalyzePage() {
               <div className="video-upload-grid" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16 }}>
                 <VideoDropzone
                   label="Face-on view" badge="Recommended" badgeColor="green"
-                  hint="Film from directly in front. Best for rotation, posture & weight transfer."
-                  videoUrl={faceOnUrl} videoFile={faceOnFile}
-                  onUpload={(e) => handleUpload(setFaceOnFile, setFaceOnUrl, e)}
-                  onClear={() => { setFaceOnFile(null); setFaceOnUrl(''); }}
+                  hint="Film just your swing — 3 to 8 seconds ideal, 15s max. Best for rotation, posture & weight transfer."
+                  videoUrl={faceOnUrl} videoFile={faceOnFile} videoDuration={faceOnDuration}
+                  onUpload={(e) => handleUpload(setFaceOnFile, setFaceOnUrl, setFaceOnDuration, e)}
+                  onClear={() => { setFaceOnFile(null); setFaceOnUrl(''); setFaceOnDuration(0); }}
                 />
                 <VideoDropzone
                   label="Down-the-line view" badge="Optional" badgeColor="gray"
-                  hint="Film from behind along target line. Best for club path & plane."
-                  videoUrl={dtlUrl} videoFile={dtlFile}
-                  onUpload={(e) => handleUpload(setDtlFile, setDtlUrl, e)}
-                  onClear={() => { setDtlFile(null); setDtlUrl(''); }}
+                  hint="Film just your swing — 3 to 8 seconds ideal, 15s max. Best for club path & plane."
+                  videoUrl={dtlUrl} videoFile={dtlFile} videoDuration={dtlDuration}
+                  onUpload={(e) => handleUpload(setDtlFile, setDtlUrl, setDtlDuration, e)}
+                  onClear={() => { setDtlFile(null); setDtlUrl(''); setDtlDuration(0); }}
                 />
               </div>
               {faceOnFile && dtlFile && (
