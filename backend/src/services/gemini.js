@@ -98,7 +98,7 @@ Watch the full swing from start to finish. Provide thorough, encouraging analysi
         response = await genai.models.generateContent({
           model: 'gemini-2.5-flash',
           contents: [
-            { role: 'user', parts: [{ fileData: { mimeType: file.mimeType, fileUri: file.uri } }, { text: prompt }] }
+            { role: 'user', parts: [{ fileData: { mimeType: file.mimeType, fileUri: file.uri }, videoMetadata: { fps: 6 } }, { text: prompt }] }
           ],
           config: { systemInstruction: SYSTEM_PROMPT, temperature: 0.3 },
         });
