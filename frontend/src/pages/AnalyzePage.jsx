@@ -5,6 +5,46 @@ import { api } from '../api/index.js';
 import AnalysisReport from '../components/AnalysisReport.jsx';
 import SwingLoader from '../components/SwingLoader.jsx';
 
+function VideoPreview({ videoUrl }) {
+  const [poster, setPoster] = React.useState('');
+  const videoRef = React.useRef(null);
+
+  React.useEffect(() => {
+    if (!videoUrl) return;
+    setPoster('');
+    const vid = document.createElement('video');
+    vid.muted = true;
+    vid.playsInline = true;
+    vid.crossOrigin = 'anonymous';
+    vid.preload = 'metadata';
+    vid.src = videoUrl;
+    vid.addEventListener('loadedmetadata', () => {
+      vid.currentTime = 0.5;
+    });
+    vid.addEventListener('seeked', () => {
+      try {
+        const canvas = document.createElement('canvas');
+        canvas.width = vid.videoWidth || 640;
+        canvas.height = vid.videoHeight || 360;
+        canvas.getContext('2d').drawImage(vid, 0, 0, canvas.width, canvas.height);
+        setPoster(canvas.toDataURL('image/jpeg', 0.85));
+      } catch {}
+    });
+    vid.load();
+  }, [videoUrl]);
+
+  return (
+    <video
+      ref={videoRef}
+      src={videoUrl}
+      controls
+      playsInline
+      poster={poster}
+      style={{ width: '100%', borderRadius: 8, background: '#111', maxHeight: 220, display: 'block' }}
+    />
+  );
+}
+
 const CLUBS = ['Driver','3-Wood','5-Wood','Hybrid','3-Iron','4-Iron','5-Iron','6-Iron','7-Iron','8-Iron','9-Iron','PW','SW','LW','Putter'];
 
 function StepLabel({ number, title, subtitle }) {
@@ -75,20 +115,7 @@ function VideoDropzone({ label, badge, badgeColor, hint, videoUrl, videoFile, vi
         </div>
       ) : (
         <div>
-          <video
-            src={videoUrl} controls playsInline
-            style={{ width: '100%', borderRadius: 8, background: '#000', maxHeight: 220 }}
-            onLoadedData={(e) => { e.target.currentTime = 0.1; }}
-            onSeeked={(e) => {
-              if (e.target.currentTime <= 0.2) {
-                const c = document.createElement('canvas');
-                c.width = e.target.videoWidth;
-                c.height = e.target.videoHeight;
-                c.getContext('2d').drawImage(e.target, 0, 0);
-                e.target.poster = c.toDataURL('image/jpeg', 0.8);
-              }
-            }}
-          />
+          <VideoPreview videoUrl={videoUrl} />
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginTop: 10 }}>
             <div style={{ fontSize: 12, color: videoDuration > 15 ? '#d97706' : '#16a34a', fontWeight: 500 }}>
               {videoDuration > 15 ? '⚠️' : '✓'} {videoFile?.name || 'Video ready'}
