@@ -75,7 +75,20 @@ function VideoDropzone({ label, badge, badgeColor, hint, videoUrl, videoFile, vi
         </div>
       ) : (
         <div>
-          <video src={videoUrl} controls playsInline style={{ width: '100%', borderRadius: 8, background: '#000', maxHeight: 220 }} />
+          <video
+            src={videoUrl} controls playsInline
+            style={{ width: '100%', borderRadius: 8, background: '#000', maxHeight: 220 }}
+            onLoadedData={(e) => { e.target.currentTime = 0.1; }}
+            onSeeked={(e) => {
+              if (e.target.currentTime <= 0.2) {
+                const c = document.createElement('canvas');
+                c.width = e.target.videoWidth;
+                c.height = e.target.videoHeight;
+                c.getContext('2d').drawImage(e.target, 0, 0);
+                e.target.poster = c.toDataURL('image/jpeg', 0.8);
+              }
+            }}
+          />
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginTop: 10 }}>
             <div style={{ fontSize: 12, color: videoDuration > 15 ? '#d97706' : '#16a34a', fontWeight: 500 }}>
               {videoDuration > 15 ? '⚠️' : '✓'} {videoFile?.name || 'Video ready'}
