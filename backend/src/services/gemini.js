@@ -96,7 +96,7 @@ Watch the full swing from start to finish. Provide thorough, encouraging analysi
     while (retryAttempts < 4) {
       try {
         response = await genai.models.generateContent({
-          model: 'gemini-1.5-flash',
+          model: 'gemini-2.5-flash',
           contents: [
             { role: 'user', parts: [{ fileData: { mimeType: file.mimeType, fileUri: file.uri } }, { text: prompt }] }
           ],
