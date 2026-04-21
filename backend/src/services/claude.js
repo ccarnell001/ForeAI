@@ -74,12 +74,32 @@ ${notes ? `Golfer's notes: ${notes}` : ''}
 
 Analyze each labeled frame specifically. Reference exact positions you observe. Be technically precise and personally encouraging. Return ONLY valid JSON.`;
 
-  const response = await client.messages.create({
-    model: 'claude-sonnet-4-6',
-    max_tokens: 4000,
-    system: SYSTEM_PROMPT,
-    messages: [{ role: 'user', content: [...imageContent, { type: 'text', text: prompt }] }],
-  });
+  // Retry with backoff for 503/overload errors
+  let response;
+  let retries = 0;
+  while (retries < 4) {
+    try {
+      response = await client.messages.create({
+        model: 'claude-sonnet-4-6',
+        max_tokens: 4000,
+        system: SYSTEM_PROMPT,
+        messages: [{ role: 'user', content: [...imageContent, { type: 'text', text: prompt }] }],
+      });
+      break;
+    } catch (err) {
+      retries++;
+      const isOverload = err?.status === 529 || err?.status === 503 ||
+        JSON.stringify(err?.message || '').includes('overloaded') ||
+        JSON.stringify(err?.message || '').includes('high demand');
+      if (isOverload && retries < 4) {
+        const wait = retries * 12000;
+        console.log(`Claude overloaded, retrying in ${wait/1000}s (attempt ${retries}/3)...`);
+        await new Promise(r => setTimeout(r, wait));
+      } else {
+        throw err;
+      }
+    }
+  }
 
   const text = response.content[0].text;
   const cleaned = text.replace(/```json|```/g, '').trim();
