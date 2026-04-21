@@ -104,12 +104,19 @@ export default function SwingLoader({ status }) {
         </div>
 
         <div style={{ display: 'flex', flexDirection: 'column', gap: 10, textAlign: 'left' }}>
-          {[
-            { label: 'Video uploaded', done: uploaded || watching },
-            { label: 'Gemini finding key swing positions', done: watching, active: !watching && uploaded },
-            { label: 'Claude analyzing each position', done: false, active: watching },
-            { label: 'Generating coaching report', done: false, active: false },
-          ].map((step, i) => (
+          {(() => {
+            const s = status || '';
+            const isGemini = s.includes('Gemini');
+            const isExtracting = s.includes('Extracting');
+            const isClaude = s.includes('Claude');
+            const isDone = s.includes('complete');
+            return [
+              { label: 'Video uploaded', done: isGemini || isExtracting || isClaude || isDone },
+              { label: 'Gemini finding swing positions', done: isExtracting || isClaude || isDone, active: isGemini },
+              { label: 'Extracting key frames', done: isClaude || isDone, active: isExtracting },
+              { label: 'Claude analyzing each position', done: isDone, active: isClaude },
+            ];
+          })().map((step, i) => (
             <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
               <div style={{
                 width: 20, height: 20, borderRadius: '50%', flexShrink: 0,

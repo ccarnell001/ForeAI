@@ -81,7 +81,7 @@ Analyze each labeled frame specifically. Reference exact positions you observe. 
     try {
       response = await client.messages.create({
         model: 'claude-sonnet-4-6',
-        max_tokens: 4000,
+        max_tokens: 8000,
         system: SYSTEM_PROMPT,
         messages: [{ role: 'user', content: [...imageContent, { type: 'text', text: prompt }] }],
       });
@@ -103,5 +103,30 @@ Analyze each labeled frame specifically. Reference exact positions you observe. 
 
   const text = response.content[0].text;
   const cleaned = text.replace(/```json|```/g, '').trim();
-  return JSON.parse(cleaned);
+  
+  // Find the JSON object even if response is truncated
+  try {
+    return JSON.parse(cleaned);
+  } catch (e) {
+    // Try to extract just the JSON object
+    const jsonMatch = cleaned.match(/\{[\s\S]*/);
+    if (jsonMatch) {
+      // Attempt to fix truncated JSON by closing open brackets
+      let partial = jsonMatch[0];
+      // Count and close unclosed brackets
+      const opens = (partial.match(/\{/g) || []).length;
+      const closes = (partial.match(/\}/g) || []).length;
+      const arrOpens = (partial.match(/\[/g) || []).length;
+      const arrCloses = (partial.match(/\]/g) || []).length;
+      // Close any open arrays first, then objects
+      for (let i = 0; i < arrOpens - arrCloses; i++) partial += ']';
+      for (let i = 0; i < opens - closes; i++) partial += '}';
+      try {
+        return JSON.parse(partial);
+      } catch (e2) {
+        throw new Error('Could not parse AI response. Please try again.');
+      }
+    }
+    throw new Error('Could not parse AI response. Please try again.');
+  }
 }

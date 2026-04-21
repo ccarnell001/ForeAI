@@ -19,19 +19,40 @@ router.post('/', requireAuth, checkQuota, async (req, res) => {
   const userName = req.user.name;
   const tmpFile = path.join(os.tmpdir(), `swing_${userId}_${Date.now()}.${mimeType === 'video/quicktime' ? 'mov' : 'mp4'}`);
 
+  // Use SSE headers so frontend can get phase updates
+  res.setHeader('Content-Type', 'text/event-stream');
+  res.setHeader('Cache-Control', 'no-cache');
+  res.setHeader('X-Accel-Buffering', 'no');
+
+  const sendStatus = (phase, message) => {
+    res.write(`data: ${JSON.stringify({ type: 'status', phase, message })}\n\n`);
+  };
+  const sendResult = (data) => {
+    res.write(`data: ${JSON.stringify({ type: 'result', ...data })}\n\n`);
+    res.end();
+  };
+  const sendError = (error) => {
+    res.write(`data: ${JSON.stringify({ type: 'error', error })}\n\n`);
+    res.end();
+  };
+
   try {
     // Write video to temp file
     const videoBuffer = Buffer.from(videoData, 'base64');
     fs.writeFileSync(tmpFile, videoBuffer);
     console.log(`🎬 Video saved: ${(videoBuffer.length / 1024 / 1024).toFixed(1)}MB`);
 
+    sendStatus('uploading', 'Video received — starting analysis...');
+
     // Phase 1: Gemini finds the 8 key timestamps
     console.log('⏱️  Phase 1: Gemini identifying key swing positions...');
+    sendStatus('gemini', 'Gemini is finding key swing positions...');
     const timestamps = await getSwingTimestamps(tmpFile, mimeType || 'video/mp4');
     console.log('✅ Timestamps:', JSON.stringify(timestamps));
 
     // Phase 2: Extract exact frames at those timestamps
     console.log('🖼️  Phase 2: Extracting frames at key positions...');
+    sendStatus('extracting', 'Extracting frames at key positions...');
     const frames = await extractFramesAtTimestamps(tmpFile, timestamps);
     console.log(`✅ Extracted ${frames.length} frames`);
 
@@ -45,6 +66,7 @@ router.post('/', requireAuth, checkQuota, async (req, res) => {
 
     // Phase 3: Claude deep-analyzes all frames
     console.log('🧠 Phase 3: Claude analyzing swing positions...');
+    sendStatus('claude', 'Claude is analyzing each swing position...');
     const report = await analyzeSwingFrames(frames, {
       club, viewType, notes, userName, handicap
     });
@@ -67,7 +89,7 @@ router.post('/', requireAuth, checkQuota, async (req, res) => {
     await incrementQuota(userId);
 
     const usedNow = req.quotaUsed + 1;
-    res.json({
+    sendResult({
       report,
       sessionId,
       quota: { used: usedNow, limit: req.quotaLimit, remaining: req.quotaLimit - usedNow },
@@ -75,7 +97,7 @@ router.post('/', requireAuth, checkQuota, async (req, res) => {
 
   } catch (err) {
     console.error('Analysis error:', err);
-    res.status(500).json({ error: err.message || 'Analysis failed. Please try again.' });
+    sendError(err.message || 'Analysis failed. Please try again.');
   } finally {
     if (fs.existsSync(tmpFile)) fs.unlinkSync(tmpFile);
   }

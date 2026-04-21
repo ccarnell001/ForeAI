@@ -193,28 +193,68 @@ export default function AnalyzePage() {
         reader.readAsDataURL(primaryFile);
       });
 
-      setAnalyzeStatus('Gemini is finding key swing positions...');
-      // Status will update as backend progresses - total ~45-60 seconds
+      setAnalyzeStatus('Uploading your swing video...');
 
-      // 90 second timeout safety net
       const timeoutId = setTimeout(() => {
         setAnalyzing(false);
         setAnalyzeStatus('');
-        setError('Analysis timed out — please try again with a shorter video (under 15 seconds).');
-      }, 90000);
+        setError('Analysis timed out — the servers may be busy. Please try again.');
+      }, 180000);
 
-      const result = await api.analyze({
-        videoData,
-        mimeType: primaryFile.type || 'video/mp4',
-        club,
-        viewType: getViewType(),
-        notes,
-        title: `${club} — ${getViewType()}`,
+      // Use SSE stream to get real-time phase updates
+      const token = localStorage.getItem('foreai_token');
+      const BASE = import.meta.env.VITE_API_URL || '/api';
+
+      await new Promise((resolve, reject) => {
+        fetch(`${BASE}/analyze`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${token}`,
+          },
+          body: JSON.stringify({
+            videoData,
+            mimeType: primaryFile.type || 'video/mp4',
+            club,
+            viewType: getViewType(),
+            notes,
+            title: `${club} — ${getViewType()}`,
+          }),
+        }).then(response => {
+          const reader = response.body.getReader();
+          const decoder = new TextDecoder();
+          let buffer = '';
+
+          function read() {
+            reader.read().then(({ done, value }) => {
+              if (done) { resolve(); return; }
+              buffer += decoder.decode(value, { stream: true });
+              const lines = buffer.split('\n');
+              buffer = lines.pop();
+              for (const line of lines) {
+                if (line.startsWith('data: ')) {
+                  try {
+                    const data = JSON.parse(line.slice(6));
+                    if (data.type === 'status') {
+                      setAnalyzeStatus(data.message);
+                    } else if (data.type === 'result') {
+                      clearTimeout(timeoutId);
+                      setReport(data.report);
+                      setQuota(data.quota);
+                      resolve();
+                    } else if (data.type === 'error') {
+                      clearTimeout(timeoutId);
+                      reject(new Error(data.error));
+                    }
+                  } catch {}
+                }
+              }
+              read();
+            }).catch(reject);
+          }
+          read();
+        }).catch(reject);
       });
-
-      clearTimeout(timeoutId);
-      setReport(result.report);
-      setQuota(result.quota);
     } catch (err) {
       setError(err.message || 'Analysis failed. Please try again.');
     } finally {
