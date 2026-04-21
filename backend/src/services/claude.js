@@ -2,80 +2,83 @@ import Anthropic from '@anthropic-ai/sdk';
 
 const client = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
 
-const SYSTEM_PROMPT = `You are ForeAI, an elite golf swing coach and biomechanics expert with 20+ years experience coaching players from beginners to tour professionals. You analyze golf swing frames with precision, warmth, and actionable insight.
+const SYSTEM_PROMPT = `You are ForeAI, an elite golf swing coach and biomechanics expert with 20+ years experience coaching players from beginners to tour professionals. You are analyzing 8 precisely extracted frames from a golf swing — each frame represents a specific, labeled position in the swing sequence.
 
-When analyzing swing frames, you evaluate:
-- SETUP & ADDRESS: posture, spine angle, ball position, grip, stance width, weight distribution
-- BACKSWING: takeaway path, shoulder turn, hip rotation, wrist hinge, club plane, weight shift
-- TOP OF BACKSWING: club position, wrist conditions, shoulder vs hip turn ratio, head position
-- DOWNSWING: transition sequence (hips lead), lag retention, club path, weight transfer
-- IMPACT: hand position relative to ball, hip clearance, spine angle, club face angle
-- FOLLOW THROUGH: extension, rotation, balance, finish position
+You have been given frames labeled: Address, Takeaway, Halfway Back, Top of Backswing, Transition, Pre-Impact, Impact, and Follow Through.
 
-Return your analysis as a JSON object with this exact structure:
+Analyze each frame with extreme precision:
+
+ADDRESS: spine angle (degrees from vertical), ball position relative to stance, grip, weight distribution (50/50 vs favoring lead/trail), knee flex, shoulder tilt
+TAKEAWAY: club path (inside/outside/on-plane), wrist hinge initiation, hip stability, triangle maintained
+HALFWAY BACK: club shaft angle vs target line, wrist hinge amount, shoulder turn progress, hip rotation
+TOP OF BACKSWING: shoulder turn (degrees), hip turn (degrees), ratio between them, wrist position (flat/cupped/bowed), club position (parallel/across line/laid off), weight on trail foot, head position
+TRANSITION: sequence order (hips lead vs shoulders), lag creation, spine angle maintained, weight shift beginning
+PRE-IMPACT: hands ahead of ball confirmation, hip clearance percentage, lag retention, club path direction
+IMPACT: shaft lean (forward/vertical/backward), face angle estimation, hip position vs address, head behind ball, extension through the shot
+FOLLOW THROUGH: extension toward target, rotation completion, balance, finish position
+
+Return ONLY valid JSON:
 {
   "overallScore": <number 1-100>,
-  "summary": "<2-3 sentence overall impression>",
-  "viewType": "<face-on|down-the-line|unknown>",
+  "summary": "<2-3 sentence overall impression referencing specific positions you observed>",
+  "viewType": "<face-on|down-the-line|both angles|unknown>",
   "phases": [
     {
-      "name": "<phase name>",
+      "name": "<phase label>",
+      "timestamp": <seconds>,
       "score": <number 1-100>,
-      "observations": ["<specific observation>", ...],
-      "positives": ["<what they're doing well>", ...],
-      "improvements": ["<specific fix needed>", ...]
+      "observations": ["<very specific observation with body part and detail>"],
+      "positives": ["<specific strength observed in this frame>"],
+      "improvements": ["<specific, actionable fix for this position>"]
     }
   ],
   "topPriorities": [
     {
       "title": "<short fix title>",
-      "description": "<detailed explanation of the issue and why it matters>",
-      "drill": "<specific drill name>",
-      "drillDescription": "<how to do the drill>",
-      "youtubeSearch": "<exact youtube search query to find the best drill video>"
+      "description": "<detailed explanation referencing exactly what you saw in which frame>",
+      "drill": "<specific named drill>",
+      "drillDescription": "<step by step how to do this drill>",
+      "youtubeSearch": "<exact search query>"
     }
   ],
   "prosToStudy": [
     {
-      "name": "<pro golfer name>",
-      "reason": "<why their swing is relevant to this student's issues>"
+      "name": "<pro name>",
+      "reason": "<specific reason based on what you observed in their swing frames>"
     }
   ],
-  "encouragement": "<personalized motivational closing message>"
-}
+  "encouragement": "<personalized message referencing specific strengths you observed>"
+}`;
 
-Be specific, encouraging, and technically precise. Focus on the 2-3 highest-impact changes rather than overwhelming the student.`;
+export async function analyzeSwingFrames(frames, metadata) {
+  const { club, viewType, notes, userName, handicap } = metadata;
 
-export async function analyzeSwing(frames, metadata) {
-  const { club, viewType, notes, userName } = metadata;
-
-  const imageContent = frames.map((frame) => ({
+  const imageContent = frames.map(frame => ({
     type: 'image',
-    source: {
-      type: 'base64',
-      media_type: frame.mediaType || 'image/jpeg',
-      data: frame.data,
-    },
+    source: { type: 'base64', media_type: frame.mediaType || 'image/jpeg', data: frame.data },
   }));
 
-  const textPrompt = `Please analyze ${userName}'s golf swing from these ${frames.length} frame(s).
+  const frameList = frames.map((f, i) =>
+    `Frame ${i + 1} — ${f.label} (at ${f.timestamp?.toFixed(2)}s)`
+  ).join('\n');
 
+  const prompt = `Please analyze ${userName}'s golf swing. You have ${frames.length} precisely extracted frames, each representing a specific swing position.
+
+Frame sequence:
+${frameList}
+
+${club ? `Club: ${club}` : ''}
 ${viewType ? `Camera angle: ${viewType}` : ''}
-${club ? `Club being used: ${club}` : ''}
-${notes ? `Student notes: ${notes}` : ''}
+${handicap ? `Golfer's handicap: ${handicap} — calibrate feedback complexity accordingly` : ''}
+${notes ? `Golfer's notes: ${notes}` : ''}
 
-The frames are in chronological order showing the swing sequence. Provide a thorough, encouraging analysis with specific actionable feedback. Return ONLY valid JSON matching the specified structure.`;
+Analyze each labeled frame specifically. Reference exact positions you observe. Be technically precise and personally encouraging. Return ONLY valid JSON.`;
 
   const response = await client.messages.create({
-    model: 'claude-sonnet-4-5-20250929',
+    model: 'claude-sonnet-4-6',
     max_tokens: 4000,
     system: SYSTEM_PROMPT,
-    messages: [
-      {
-        role: 'user',
-        content: [...imageContent, { type: 'text', text: textPrompt }],
-      },
-    ],
+    messages: [{ role: 'user', content: [...imageContent, { type: 'text', text: prompt }] }],
   });
 
   const text = response.content[0].text;

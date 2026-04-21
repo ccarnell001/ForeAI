@@ -105,8 +105,9 @@ export default function SwingLoader({ status }) {
 
         <div style={{ display: 'flex', flexDirection: 'column', gap: 10, textAlign: 'left' }}>
           {[
-            { label: 'Video uploaded', done: uploaded },
-            { label: 'AI watching your full swing', done: false, active: watching },
+            { label: 'Video uploaded', done: uploaded || watching },
+            { label: 'Gemini finding key swing positions', done: watching, active: !watching && uploaded },
+            { label: 'Claude analyzing each position', done: false, active: watching },
             { label: 'Generating coaching report', done: false, active: false },
           ].map((step, i) => (
             <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 10 }}>

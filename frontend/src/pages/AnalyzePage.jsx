@@ -193,7 +193,8 @@ export default function AnalyzePage() {
         reader.readAsDataURL(primaryFile);
       });
 
-      setAnalyzeStatus('Gemini AI is watching your swing... (20-40 seconds)');
+      setAnalyzeStatus('Gemini is finding key swing positions...');
+      // Status will update as backend progresses - total ~45-60 seconds
 
       // 90 second timeout safety net
       const timeoutId = setTimeout(() => {

@@ -1,27 +1,56 @@
 import express from 'express';
+import fs from 'fs';
+import path from 'path';
+import os from 'os';
 import { requireAuth } from '../middleware/auth.js';
 import { checkQuota, incrementQuota } from '../middleware/quota.js';
-import { analyzeSwingVideo } from '../services/gemini.js';
+import { getSwingTimestamps } from '../services/gemini.js';
+import { extractFramesAtTimestamps } from '../services/frameExtractor.js';
+import { analyzeSwingFrames } from '../services/claude.js';
 import { pool } from '../db/index.js';
 
 const router = express.Router();
 
 router.post('/', requireAuth, checkQuota, async (req, res) => {
   const { videoData, mimeType, club, viewType, notes, title } = req.body;
-
   if (!videoData) return res.status(400).json({ error: 'No video data provided' });
 
   const userId = req.user.id;
   const userName = req.user.name;
+  const tmpFile = path.join(os.tmpdir(), `swing_${userId}_${Date.now()}.${mimeType === 'video/quicktime' ? 'mov' : 'mp4'}`);
 
   try {
+    // Write video to temp file
     const videoBuffer = Buffer.from(videoData, 'base64');
-    const fileMimeType = mimeType || 'video/mp4';
+    fs.writeFileSync(tmpFile, videoBuffer);
+    console.log(`🎬 Video saved: ${(videoBuffer.length / 1024 / 1024).toFixed(1)}MB`);
 
-    const report = await analyzeSwingVideo(videoBuffer, fileMimeType, {
-      club, viewType, notes, userName,
+    // Phase 1: Gemini finds the 8 key timestamps
+    console.log('⏱️  Phase 1: Gemini identifying key swing positions...');
+    const timestamps = await getSwingTimestamps(tmpFile, mimeType || 'video/mp4');
+    console.log('✅ Timestamps:', JSON.stringify(timestamps));
+
+    // Phase 2: Extract exact frames at those timestamps
+    console.log('🖼️  Phase 2: Extracting frames at key positions...');
+    const frames = await extractFramesAtTimestamps(tmpFile, timestamps);
+    console.log(`✅ Extracted ${frames.length} frames`);
+
+    if (frames.length === 0) {
+      throw new Error('Could not extract frames from video. Please try a different format.');
+    }
+
+    // Get user handicap for Claude context
+    const userResult = await pool.query('SELECT handicap FROM users WHERE id = $1', [userId]);
+    const handicap = userResult.rows[0]?.handicap;
+
+    // Phase 3: Claude deep-analyzes all frames
+    console.log('🧠 Phase 3: Claude analyzing swing positions...');
+    const report = await analyzeSwingFrames(frames, {
+      club, viewType, notes, userName, handicap
     });
+    console.log(`✅ Analysis complete — score: ${report.overallScore}`);
 
+    // Save to database
     const sessionResult = await pool.query(
       `INSERT INTO sessions (user_id, title, club, view_type, notes)
        VALUES ($1, $2, $3, $4, $5) RETURNING id`,
@@ -32,7 +61,7 @@ router.post('/', requireAuth, checkQuota, async (req, res) => {
     await pool.query(
       `INSERT INTO analyses (session_id, user_id, frame_count, report)
        VALUES ($1, $2, $3, $4)`,
-      [sessionId, userId, 1, JSON.stringify(report)]
+      [sessionId, userId, frames.length, JSON.stringify(report)]
     );
 
     await incrementQuota(userId);
@@ -43,12 +72,12 @@ router.post('/', requireAuth, checkQuota, async (req, res) => {
       sessionId,
       quota: { used: usedNow, limit: req.quotaLimit, remaining: req.quotaLimit - usedNow },
     });
+
   } catch (err) {
     console.error('Analysis error:', err);
-    if (err instanceof SyntaxError) {
-      return res.status(500).json({ error: 'Failed to parse AI response. Please try again.' });
-    }
     res.status(500).json({ error: err.message || 'Analysis failed. Please try again.' });
+  } finally {
+    if (fs.existsSync(tmpFile)) fs.unlinkSync(tmpFile);
   }
 });
 

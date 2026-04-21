@@ -5,130 +5,83 @@ import os from 'os';
 
 const genai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
 
-const SYSTEM_PROMPT = `You are ForeAI, an elite golf swing coach and biomechanics expert with 20+ years experience coaching players from beginners to tour professionals. You are analyzing a golf swing video.
+const TIMESTAMP_PROMPT = `You are analyzing a golf swing video. Your ONLY job is to identify the exact timestamps (in seconds) of these 8 key positions in the swing.
 
-Watch the ENTIRE video carefully. Pay attention to:
-- SETUP & ADDRESS: posture, spine angle, ball position, grip, stance width, weight distribution
-- BACKSWING: takeaway path, shoulder turn, hip rotation, wrist hinge, club plane, weight shift
-- TOP OF BACKSWING: club position, wrist conditions, shoulder vs hip turn ratio, head position
-- DOWNSWING: transition sequence (hips lead), lag retention, club path, weight transfer
-- IMPACT: hand position relative to ball, hip clearance, spine angle, club face angle
-- FOLLOW THROUGH: extension, rotation, balance, finish position
-
-Return your analysis as a JSON object with this EXACT structure and nothing else:
+Return ONLY a JSON object — no markdown, no explanation:
 {
-  "overallScore": <number 1-100>,
-  "summary": "<2-3 sentence overall impression>",
-  "viewType": "<face-on|down-the-line|both angles|unknown>",
-  "phases": [
-    {
-      "name": "<phase name>",
-      "score": <number 1-100>,
-      "observations": ["<specific observation>"],
-      "positives": ["<what they are doing well>"],
-      "improvements": ["<specific fix needed>"]
-    }
-  ],
-  "topPriorities": [
-    {
-      "title": "<short fix title>",
-      "description": "<detailed explanation of the issue and why it matters>",
-      "drill": "<specific drill name>",
-      "drillDescription": "<how to do the drill>",
-      "youtubeSearch": "<exact youtube search query>"
-    }
-  ],
-  "prosToStudy": [
-    {
-      "name": "<pro golfer name>",
-      "reason": "<why their swing is relevant>"
-    }
-  ],
-  "encouragement": "<personalized motivational closing message>"
+  "address": <seconds>,
+  "takeaway": <seconds>,
+  "halfwayBack": <seconds>,
+  "topOfBackswing": <seconds>,
+  "transition": <seconds>,
+  "preImpact": <seconds>,
+  "impact": <seconds>,
+  "followThrough": <seconds>
 }
 
-Be specific, encouraging, and technically precise. Focus on the 2-3 highest-impact changes.`;
+Definitions:
+- address: golfer is set up still at the ball, ready to swing
+- takeaway: club has moved back, shaft roughly parallel to ground
+- halfwayBack: left arm (for right-handed) parallel to ground
+- topOfBackswing: club is at highest point, maximum shoulder turn
+- transition: split second where backswing ends and downswing begins
+- preImpact: hands are at hip height on downswing
+- impact: club is at or near the ball
+- followThrough: club has passed ball, arms extending toward target
 
-export async function analyzeSwingVideo(videoBuffer, mimeType, metadata) {
-  const { club, viewType, notes, userName } = metadata;
+If you cannot identify a position clearly, use your best estimate based on surrounding context. Always return all 8 timestamps.`;
 
-  // Write buffer to temp file
-  const tmpDir = os.tmpdir();
-  const tmpFile = path.join(tmpDir, `swing_${Date.now()}.${mimeType === 'video/quicktime' ? 'mov' : 'mp4'}`);
-  fs.writeFileSync(tmpFile, videoBuffer);
-
+export async function getSwingTimestamps(tmpFile, mimeType) {
   let uploadedFile = null;
   try {
-    // Upload video to Gemini Files API
     uploadedFile = await genai.files.upload({
       file: tmpFile,
-      config: { mimeType, displayName: `${userName}_swing_${Date.now()}` },
+      config: { mimeType, displayName: `timestamps_${Date.now()}` },
     });
 
-    // Wait for file to be processed
     let file = uploadedFile;
     let attempts = 0;
-    while (file.state === 'PROCESSING' && attempts < 30) {
+    while (file.state === 'PROCESSING' && attempts < 20) {
       await new Promise(r => setTimeout(r, 2000));
       file = await genai.files.get({ name: file.name });
       attempts++;
     }
 
-    if (file.state !== 'ACTIVE') {
-      throw new Error(`Video processing failed with state: ${file.state}`);
-    }
+    if (file.state !== 'ACTIVE') throw new Error(`Video processing failed: ${file.state}`);
 
-    const prompt = `Please analyze ${userName}'s golf swing video.
-
-${club ? `Club being used: ${club}` : ''}
-${viewType && viewType !== 'unknown' ? `Camera angle: ${viewType}` : ''}
-${notes ? `Student notes: ${notes}` : ''}
-
-Watch the full swing from start to finish. Provide thorough, encouraging analysis with specific actionable feedback. Return ONLY valid JSON matching the specified structure — no markdown, no backticks, no preamble.`;
-
-    // Retry with exponential backoff for rate limit errors
-    let response;
-    let retryAttempts = 0;
     const isRateLimit = (err) => {
       const msg = JSON.stringify(err?.message || err?.toString() || '');
-      return msg.includes('429') || msg.includes('RESOURCE_EXHAUSTED') || msg.includes('Too Many Requests');
+      return msg.includes('429') || msg.includes('RESOURCE_EXHAUSTED');
     };
-    while (retryAttempts < 4) {
+
+    let response;
+    let retries = 0;
+    while (retries < 3) {
       try {
         response = await genai.models.generateContent({
           model: 'gemini-2.5-flash',
-          contents: [
-            { role: 'user', parts: [
-              { fileData: { mimeType: file.mimeType, fileUri: file.uri },
-                videoMetadata: { fps: 6 } },
-              { text: prompt }
-            ]}
-          ],
-          config: { systemInstruction: SYSTEM_PROMPT, temperature: 0.3 },
+          contents: [{
+            role: 'user',
+            parts: [
+              { fileData: { mimeType: file.mimeType, fileUri: file.uri }, videoMetadata: { fps: 6 } },
+              { text: TIMESTAMP_PROMPT }
+            ]
+          }],
+          config: { systemInstruction: 'Return only valid JSON. No markdown. No explanation.', temperature: 0.1 },
         });
         break;
       } catch (err) {
-        retryAttempts++;
-        if (isRateLimit(err) && retryAttempts < 4) {
-          const wait = retryAttempts * 15000;
-          console.log(`Rate limited, retrying in ${wait/1000}s (attempt ${retryAttempts}/3)...`);
-          await new Promise(r => setTimeout(r, wait));
-        } else if (isRateLimit(err)) {
-          throw new Error('ForeAI is experiencing high demand right now. Please wait 60 seconds and try again.');
-        } else {
-          throw err;
-        }
+        retries++;
+        if (isRateLimit(err) && retries < 3) {
+          await new Promise(r => setTimeout(r, retries * 10000));
+        } else throw err;
       }
     }
 
-    const text = response.text;
-    const cleaned = text.replace(/```json|```/g, '').trim();
-    return JSON.parse(cleaned);
+    const text = response.text.replace(/```json|```/g, '').trim();
+    return JSON.parse(text);
 
   } finally {
-    // Clean up temp file
-    if (fs.existsSync(tmpFile)) fs.unlinkSync(tmpFile);
-    // Delete from Gemini Files API to save quota
     if (uploadedFile?.name) {
       try { await genai.files.delete({ name: uploadedFile.name }); } catch {}
     }
