@@ -17,6 +17,20 @@ PRE-IMPACT: hands ahead of ball confirmation, hip clearance percentage, lag rete
 IMPACT: shaft lean (forward/vertical/backward), face angle estimation, hip position vs address, head behind ball, extension through the shot
 FOLLOW THROUGH: extension toward target, rotation completion, balance, finish position
 
+ANNOTATION INSTRUCTIONS:
+For each phase, you must also provide drawing annotations. The frame dimensions are approximately 1280x720 pixels (16:9). Use (0,0) as top-left corner.
+
+Estimate body landmark positions by carefully looking at each frame. Provide coordinates as percentages (0.0 to 1.0) of frame width/height so they work at any resolution.
+
+For each phase provide 2-4 of the most relevant annotations from this list:
+- SPINE_ANGLE: a line from base of neck to tailbone showing spine tilt
+- SHOULDER_LINE: a line across both shoulders
+- HIP_LINE: a line across both hips  
+- CLUB_PATH: a line showing the club shaft direction
+- ARM_LINE: a line down the lead arm
+- WEIGHT_SHIFT: an arrow indicating weight direction
+- HEAD_POSITION: a circle around the head position
+
 Return ONLY valid JSON:
 {
   "overallScore": <number 1-100>,
@@ -29,7 +43,19 @@ Return ONLY valid JSON:
       "score": <number 1-100>,
       "observations": ["<very specific observation with body part and detail>"],
       "positives": ["<specific strength observed in this frame>"],
-      "improvements": ["<specific, actionable fix for this position>"]
+      "improvements": ["<specific, actionable fix for this position>"],
+      "annotations": [
+        {
+          "type": "<SPINE_ANGLE|SHOULDER_LINE|HIP_LINE|CLUB_PATH|ARM_LINE|HEAD_POSITION>",
+          "label": "<short label>",
+          "color": "<red|yellow|cyan|white|orange>",
+          "x1": <0.0-1.0>,
+          "y1": <0.0-1.0>,
+          "x2": <0.0-1.0>,
+          "y2": <0.0-1.0>,
+          "note": "<1 sentence coaching note for this line>"
+        }
+      ]
     }
   ],
   "topPriorities": [

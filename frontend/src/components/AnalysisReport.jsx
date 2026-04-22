@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import AnnotatedFrame from './AnnotatedFrame.jsx';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from './AuthContext.jsx';
 
@@ -79,8 +80,18 @@ export default function AnalysisReport({ report, quota, onNewAnalysis, userName 
             {report.phases?.[activePhase] && (
               <div style={{ background: '#fff', borderRadius: 12, padding: 16, border: '1px solid #e5e9e5' }}>
                 <div style={{ fontSize: 13, fontWeight: 500, color: '#0a1a0a', marginBottom: 10 }}>{report.phases[activePhase].name}</div>
+
+                {/* Annotated frame */}
+                {report.phases[activePhase].frameImage && (
+                  <AnnotatedFrame
+                    frameImage={report.phases[activePhase].frameImage}
+                    annotations={report.phases[activePhase].annotations || []}
+                    phaseName={report.phases[activePhase].name}
+                  />
+                )}
+
                 {report.phases[activePhase].positives?.length > 0 && (
-                  <div style={{ marginBottom: 10 }}>
+                  <div style={{ marginBottom: 10, marginTop: report.phases[activePhase].frameImage ? 14 : 0 }}>
                     <div style={miniLabel}>What's working</div>
                     {report.phases[activePhase].positives.map((p, i) => <div key={i} style={{ fontSize: 13, color: '#16a34a', marginBottom: 3, lineHeight: 1.5 }}>✓ {p}</div>)}
                   </div>

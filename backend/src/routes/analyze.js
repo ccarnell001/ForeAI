@@ -89,8 +89,21 @@ router.post('/', requireAuth, checkQuota, async (req, res) => {
     await incrementQuota(userId);
 
     const usedNow = req.quotaUsed + 1;
+    // Attach frame thumbnails to report phases for annotation rendering
+    const frameMap = {};
+    frames.forEach(f => { frameMap[f.label] = f.data; });
+
+    // Add frame image data to each phase
+    const reportWithFrames = {
+      ...report,
+      phases: report.phases.map(phase => ({
+        ...phase,
+        frameImage: frameMap[phase.name] || null,
+      })),
+    };
+
     sendResult({
-      report,
+      report: reportWithFrames,
       sessionId,
       quota: { used: usedNow, limit: req.quotaLimit, remaining: req.quotaLimit - usedNow },
     });
