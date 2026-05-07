@@ -19,43 +19,63 @@ export async function extractFramesAtTimestamps(videoPath, timestamps, angle = '
   const frames = [];
   const angleLabel = angle === 'dtl' ? 'DTL' : 'Face-on';
 
-  for (const [phase, seconds] of Object.entries(timestamps)) {
-    if (seconds === null || seconds === undefined) continue;
+  // Sort timestamps chronologically
+  const sortedEntries = Object.entries(timestamps)
+    .filter(([, sec]) => sec !== null && sec !== undefined)
+    .sort(([, a], [, b]) => a - b);
 
+  console.log(`  Extracting ${sortedEntries.length} frames for ${angleLabel}...`);
+
+  for (const [phase, seconds] of sortedEntries) {
     const outputPath = path.join(tmpDir, `frame_${angle}_${phase}_${Date.now()}.jpg`);
 
-    await new Promise((resolve, reject) => {
+    // Seek to EXACT timestamp — no offset subtraction
+    // Use select filter to grab the closest frame to exact second
+    await new Promise((resolve) => {
       ffmpeg(videoPath)
-        .seekInput(Math.max(0, seconds - 0.1))
-        .frames(1)
-        .size('1280x?')
+        .inputOptions([`-ss ${seconds}`])
+        .outputOptions([
+          '-frames:v 1',
+          '-vf scale=1280:-1',
+          '-q:v 2',
+        ])
         .output(outputPath)
         .on('end', resolve)
         .on('error', (err) => {
-          console.warn(`Frame extraction warning for ${phase}: ${err.message}`);
-          resolve(); // Don't fail entire extraction for one frame
+          console.warn(`  ⚠️ Frame extraction warning for ${phase} at ${seconds}s: ${err.message}`);
+          resolve();
         })
         .run();
     });
 
     if (fs.existsSync(outputPath)) {
-      const data = fs.readFileSync(outputPath);
-      const base64 = data.toString('base64');
-      const baseLabel = PHASE_LABELS[phase] || phase;
-      frames.push({
-        phase,
-        label: baseLabel,        // Used for fuzzy matching
-        angleLabel,              // 'Face-on' or 'DTL'
-        displayLabel: `${angleLabel}: ${baseLabel}`,  // Full label for Claude
-        timestamp: seconds,
-        data: base64,
-        mediaType: 'image/jpeg',
-        angle,
-      });
+      const stats = fs.statSync(outputPath);
+      if (stats.size > 1000) { // Valid frame must be > 1KB
+        const data = fs.readFileSync(outputPath);
+        const base64 = data.toString('base64');
+        const baseLabel = PHASE_LABELS[phase] || phase;
+        frames.push({
+          phase,
+          label: baseLabel,
+          angleLabel,
+          displayLabel: `${angleLabel}: ${baseLabel}`,
+          timestamp: seconds,
+          data: base64,
+          mediaType: 'image/jpeg',
+          angle,
+        });
+        console.log(`  ✓ ${angleLabel} ${baseLabel} @ ${seconds}s (${(stats.size/1024).toFixed(0)}KB)`);
+      } else {
+        console.warn(`  ⚠️ Frame too small for ${phase} @ ${seconds}s — skipping`);
+      }
       fs.unlinkSync(outputPath);
+    } else {
+      console.warn(`  ⚠️ No output file for ${phase} @ ${seconds}s`);
     }
   }
 
+  // Sort by timestamp to ensure correct order
   frames.sort((a, b) => a.timestamp - b.timestamp);
+  console.log(`  ✅ ${angleLabel} extraction complete: ${frames.length} frames`);
   return frames;
 }

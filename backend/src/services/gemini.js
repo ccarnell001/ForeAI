@@ -5,31 +5,36 @@ import os from 'os';
 
 const genai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
 
-const TIMESTAMP_PROMPT = `You are analyzing a golf swing video. Your ONLY job is to identify the exact timestamps (in seconds) of these 8 key positions in the swing.
+const TIMESTAMP_PROMPT = `You are analyzing a golf swing video. Your ONLY job is to identify the exact timestamps (in seconds) of 8 key positions.
 
-Return ONLY a JSON object — no markdown, no explanation:
+CRITICAL RULES:
+- Each timestamp MUST be different — no two positions can share the same timestamp
+- Timestamps must be in ASCENDING ORDER (address < takeaway < halfwayBack < topOfBackswing < transition < preImpact < impact < followThrough)
+- Spread them across the FULL duration of the swing — do not cluster them together
+- Minimum gap between consecutive timestamps: 0.1 seconds
+- If you cannot identify a position precisely, interpolate between surrounding positions
+
+Return ONLY this JSON object (no markdown, no explanation):
 {
-  "address": <seconds>,
+  "address": <seconds - earliest timestamp>,
   "takeaway": <seconds>,
   "halfwayBack": <seconds>,
   "topOfBackswing": <seconds>,
   "transition": <seconds>,
   "preImpact": <seconds>,
   "impact": <seconds>,
-  "followThrough": <seconds>
+  "followThrough": <seconds - latest timestamp>
 }
 
 Definitions:
-- address: golfer is set up still at the ball, ready to swing
-- takeaway: club has moved back, shaft roughly parallel to ground
-- halfwayBack: left arm (for right-handed) parallel to ground
-- topOfBackswing: club is at highest point, maximum shoulder turn
-- transition: split second where backswing ends and downswing begins
-- preImpact: hands are at hip height on downswing
-- impact: club is at or near the ball
-- followThrough: club has passed ball, arms extending toward target
-
-If you cannot identify a position clearly, use your best estimate based on surrounding context. Always return all 8 timestamps.`;
+- address: golfer still at ball, ready to swing (start of sequence)
+- takeaway: club moving back, shaft roughly parallel to ground  
+- halfwayBack: lead arm parallel to ground
+- topOfBackswing: club at highest point, maximum shoulder turn
+- transition: backswing ends, downswing begins
+- preImpact: hands at hip height on downswing
+- impact: club at or near ball
+- followThrough: club past ball, arms extending (end of sequence)`;
 
 export async function getSwingTimestamps(tmpFile, mimeType) {
   let uploadedFile = null;
@@ -67,7 +72,10 @@ export async function getSwingTimestamps(tmpFile, mimeType) {
               { text: TIMESTAMP_PROMPT }
             ]
           }],
-          config: { systemInstruction: 'Return only valid JSON. No markdown. No explanation.', temperature: 0.1 },
+          config: {
+            systemInstruction: 'Return only valid JSON. No markdown. No explanation. Ensure all 8 timestamps are unique and in ascending order.',
+            temperature: 0.1
+          },
         });
         break;
       } catch (err) {
@@ -79,7 +87,20 @@ export async function getSwingTimestamps(tmpFile, mimeType) {
     }
 
     const text = response.text.replace(/```json|```/g, '').trim();
-    return JSON.parse(text);
+    const timestamps = JSON.parse(text);
+
+    // Validate and fix timestamps — ensure they are unique and ascending
+    const phases = ['address','takeaway','halfwayBack','topOfBackswing','transition','preImpact','impact','followThrough'];
+    let lastTime = -1;
+    for (const phase of phases) {
+      if (timestamps[phase] <= lastTime) {
+        timestamps[phase] = lastTime + 0.15; // Force minimum gap
+        console.warn(`  ⚠️ Fixed timestamp for ${phase}: set to ${timestamps[phase]}`);
+      }
+      lastTime = timestamps[phase];
+    }
+
+    return timestamps;
 
   } finally {
     if (uploadedFile?.name) {
