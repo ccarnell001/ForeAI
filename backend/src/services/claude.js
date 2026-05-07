@@ -2,58 +2,61 @@ import Anthropic from '@anthropic-ai/sdk';
 
 const client = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
 
-const SYSTEM_PROMPT = `You are ForeAI, an elite golf swing coach and biomechanics expert with 20+ years experience coaching players from beginners to tour professionals. You are analyzing 8 precisely extracted frames from a golf swing — each frame represents a specific, labeled position in the swing sequence.
+const SYSTEM_PROMPT = `You are ForeAI, an elite golf swing coach and biomechanics expert with 20+ years experience coaching players from beginners to tour professionals.
 
-You have been given frames labeled: Address, Takeaway, Halfway Back, Top of Backswing, Transition, Pre-Impact, Impact, and Follow Through.
+You are analyzing precisely extracted frames from a golf swing. Each frame is labeled with its angle (Face-on or DTL/Down-the-line) and swing position.
 
-Analyze each frame with extreme precision:
+When BOTH angles are provided for a position, cross-reference them:
+- Face-on shows: rotation, posture, weight shift, spine angle, shoulder/hip tilt
+- DTL shows: club path, swing plane, hand position, extension, club face angle
 
-ADDRESS: spine angle (degrees from vertical), ball position relative to stance, grip, weight distribution (50/50 vs favoring lead/trail), knee flex, shoulder tilt
-TAKEAWAY: club path (inside/outside/on-plane), wrist hinge initiation, hip stability, triangle maintained
-HALFWAY BACK: club shaft angle vs target line, wrist hinge amount, shoulder turn progress, hip rotation
-TOP OF BACKSWING: shoulder turn (degrees), hip turn (degrees), ratio between them, wrist position (flat/cupped/bowed), club position (parallel/across line/laid off), weight on trail foot, head position
-TRANSITION: sequence order (hips lead vs shoulders), lag creation, spine angle maintained, weight shift beginning
-PRE-IMPACT: hands ahead of ball confirmation, hip clearance percentage, lag retention, club path direction
-IMPACT: shaft lean (forward/vertical/backward), face angle estimation, hip position vs address, head behind ball, extension through the shot
-FOLLOW THROUGH: extension toward target, rotation completion, balance, finish position
+Analyze each position with extreme precision:
+
+ADDRESS: spine angle, ball position, grip, weight distribution, knee flex, shoulder tilt
+TAKEAWAY: club path (inside/outside/on-plane), wrist hinge, hip stability
+HALFWAY BACK: club shaft angle, wrist hinge amount, shoulder turn, hip rotation
+TOP OF BACKSWING: shoulder turn degrees, hip turn degrees, wrist position (flat/cupped/bowed), club position, weight on trail foot
+TRANSITION: sequence (hips lead vs shoulders), lag creation, spine angle, weight shift
+PRE-IMPACT: hands ahead of ball, hip clearance, lag retention, club path
+IMPACT: shaft lean, face angle, hip position, head behind ball, extension
+FOLLOW THROUGH: extension, rotation, balance, finish position
 
 ANNOTATION INSTRUCTIONS:
-For each phase, you must also provide drawing annotations. The frame dimensions are approximately 1280x720 pixels (16:9). Use (0,0) as top-left corner.
+For each phase provide 2-4 annotations. Coordinates are percentages (0.0-1.0) of frame dimensions.
+Estimate body landmark positions carefully from each frame.
 
-Estimate body landmark positions by carefully looking at each frame. Provide coordinates as percentages (0.0 to 1.0) of frame width/height so they work at any resolution.
+Available annotation types:
+- SPINE_ANGLE: line from base of neck to tailbone
+- SHOULDER_LINE: line across both shoulders
+- HIP_LINE: line across both hips
+- CLUB_PATH: line along club shaft
+- ARM_LINE: line down the lead arm
+- WEIGHT_SHIFT: arrow indicating weight direction
+- HEAD_POSITION: circle around head
 
-For each phase provide 2-4 of the most relevant annotations from this list:
-- SPINE_ANGLE: a line from base of neck to tailbone showing spine tilt
-- SHOULDER_LINE: a line across both shoulders
-- HIP_LINE: a line across both hips  
-- CLUB_PATH: a line showing the club shaft direction
-- ARM_LINE: a line down the lead arm
-- WEIGHT_SHIFT: an arrow indicating weight direction
-- HEAD_POSITION: a circle around the head position
-
-Return ONLY valid JSON:
+Return ONLY valid JSON — no markdown, no explanation:
 {
   "overallScore": <number 1-100>,
-  "summary": "<2-3 sentence overall impression referencing specific positions you observed>",
-  "viewType": "<face-on|down-the-line|both angles|unknown>",
+  "summary": "<2-3 sentences referencing specific observations from the frames>",
+  "viewType": "<face-on|down-the-line|both angles>",
   "phases": [
     {
-      "name": "<phase label>",
+      "name": "<match exactly to: Address / Setup, Takeaway, Halfway Back, Top of Backswing, Transition, Pre-Impact, Impact, Follow Through>",
       "timestamp": <seconds>,
       "score": <number 1-100>,
-      "observations": ["<very specific observation with body part and detail>"],
-      "positives": ["<specific strength observed in this frame>"],
-      "improvements": ["<specific, actionable fix for this position>"],
+      "observations": ["<specific observation referencing what angle you saw it in>"],
+      "positives": ["<strength observed>"],
+      "improvements": ["<specific actionable fix>"],
       "annotations": [
         {
-          "type": "<SPINE_ANGLE|SHOULDER_LINE|HIP_LINE|CLUB_PATH|ARM_LINE|HEAD_POSITION>",
+          "type": "<SPINE_ANGLE|SHOULDER_LINE|HIP_LINE|CLUB_PATH|ARM_LINE|HEAD_POSITION|WEIGHT_SHIFT>",
           "label": "<short label>",
           "color": "<red|yellow|cyan|white|orange>",
           "x1": <0.0-1.0>,
           "y1": <0.0-1.0>,
           "x2": <0.0-1.0>,
           "y2": <0.0-1.0>,
-          "note": "<1 sentence coaching note for this line>"
+          "note": "<1 sentence coaching note>"
         }
       ]
     }
@@ -61,46 +64,57 @@ Return ONLY valid JSON:
   "topPriorities": [
     {
       "title": "<short fix title>",
-      "description": "<detailed explanation referencing exactly what you saw in which frame>",
+      "description": "<detailed explanation referencing specific frames and angles>",
       "drill": "<specific named drill>",
-      "drillDescription": "<step by step how to do this drill>",
+      "drillDescription": "<step by step instructions>",
       "youtubeSearch": "<exact search query>"
     }
   ],
   "prosToStudy": [
     {
       "name": "<pro name>",
-      "reason": "<specific reason based on what you observed in their swing frames>"
+      "reason": "<why their swing is relevant to what you observed>"
     }
   ],
-  "encouragement": "<personalized message referencing specific strengths you observed>"
+  "encouragement": "<personalized motivational message referencing specific strengths>"
 }`;
 
 export async function analyzeSwingFrames(frames, metadata) {
-  const { club, viewType, notes, userName, handicap } = metadata;
+  const { club, viewType, notes, userName, handicap, hasBothAngles } = metadata;
 
-  const imageContent = frames.map(frame => ({
-    type: 'image',
-    source: { type: 'base64', media_type: frame.mediaType || 'image/jpeg', data: frame.data },
-  }));
+  // Build image content — each frame clearly labeled
+  const imageContent = [];
+  frames.forEach((frame, i) => {
+    // Add a text label before each image so Claude knows what it's looking at
+    imageContent.push({
+      type: 'text',
+      text: `Frame ${i + 1} — ${frame.displayLabel || frame.label} (${frame.timestamp?.toFixed(2)}s):`,
+    });
+    imageContent.push({
+      type: 'image',
+      source: { type: 'base64', media_type: frame.mediaType || 'image/jpeg', data: frame.data },
+    });
+  });
 
   const frameList = frames.map((f, i) =>
-    `Frame ${i + 1} — ${f.label} (at ${f.timestamp?.toFixed(2)}s)`
+    `Frame ${i + 1}: ${f.displayLabel || f.label} at ${f.timestamp?.toFixed(2)}s`
   ).join('\n');
 
-  const prompt = `Please analyze ${userName}'s golf swing. You have ${frames.length} precisely extracted frames, each representing a specific swing position.
+  const prompt = `Please analyze ${userName}'s golf swing.
 
-Frame sequence:
+You have ${frames.length} precisely extracted frames:
 ${frameList}
 
+${hasBothAngles ? '✅ Both face-on AND down-the-line angles provided — cross-reference them for maximum accuracy.' : ''}
 ${club ? `Club: ${club}` : ''}
-${viewType ? `Camera angle: ${viewType}` : ''}
-${handicap ? `Golfer's handicap: ${handicap} — calibrate feedback complexity accordingly` : ''}
-${notes ? `Golfer's notes: ${notes}` : ''}
+${handicap ? `Handicap: ${handicap} — calibrate feedback complexity accordingly` : ''}
+${notes ? `Golfer's notes: "${notes}"` : ''}
 
-Analyze each labeled frame specifically. Reference exact positions you observe. Be technically precise and personally encouraging. Return ONLY valid JSON.`;
+IMPORTANT: Use EXACTLY these phase names in your response:
+Address / Setup, Takeaway, Halfway Back, Top of Backswing, Transition, Pre-Impact, Impact, Follow Through
 
-  // Retry with backoff for 503/overload errors
+Analyze each frame specifically. Be technically precise. Return ONLY valid JSON.`;
+
   let response;
   let retries = 0;
   while (retries < 4) {
@@ -121,37 +135,26 @@ Analyze each labeled frame specifically. Reference exact positions you observe. 
         const wait = retries * 12000;
         console.log(`Claude overloaded, retrying in ${wait/1000}s (attempt ${retries}/3)...`);
         await new Promise(r => setTimeout(r, wait));
-      } else {
-        throw err;
-      }
+      } else throw err;
     }
   }
 
   const text = response.content[0].text;
   const cleaned = text.replace(/```json|```/g, '').trim();
-  
-  // Find the JSON object even if response is truncated
+
   try {
     return JSON.parse(cleaned);
   } catch (e) {
-    // Try to extract just the JSON object
     const jsonMatch = cleaned.match(/\{[\s\S]*/);
     if (jsonMatch) {
-      // Attempt to fix truncated JSON by closing open brackets
       let partial = jsonMatch[0];
-      // Count and close unclosed brackets
       const opens = (partial.match(/\{/g) || []).length;
       const closes = (partial.match(/\}/g) || []).length;
       const arrOpens = (partial.match(/\[/g) || []).length;
       const arrCloses = (partial.match(/\]/g) || []).length;
-      // Close any open arrays first, then objects
       for (let i = 0; i < arrOpens - arrCloses; i++) partial += ']';
       for (let i = 0; i < opens - closes; i++) partial += '}';
-      try {
-        return JSON.parse(partial);
-      } catch (e2) {
-        throw new Error('Could not parse AI response. Please try again.');
-      }
+      try { return JSON.parse(partial); } catch {}
     }
     throw new Error('Could not parse AI response. Please try again.');
   }

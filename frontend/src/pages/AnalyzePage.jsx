@@ -1,7 +1,6 @@
 import { useState, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../components/AuthContext.jsx';
-import { api } from '../api/index.js';
 import AnalysisReport from '../components/AnalysisReport.jsx';
 import SwingLoader from '../components/SwingLoader.jsx';
 
@@ -10,9 +9,7 @@ const CLUBS = ['Driver','3-Wood','5-Wood','Hybrid','3-Iron','4-Iron','5-Iron','6
 function StepLabel({ number, title, subtitle }) {
   return (
     <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 16 }}>
-      <div style={{ width: 28, height: 28, borderRadius: '50%', background: '#0a1a0a', color: '#4ade80', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 13, fontWeight: 700, flexShrink: 0 }}>
-        {number}
-      </div>
+      <div style={{ width: 28, height: 28, borderRadius: '50%', background: '#0a1a0a', color: '#4ade80', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 13, fontWeight: 700, flexShrink: 0 }}>{number}</div>
       <div>
         <div style={{ fontSize: 14, fontWeight: 500, color: '#0a1a0a' }}>{title}</div>
         {subtitle && <div style={{ fontSize: 12, color: '#9ca39c', marginTop: 1 }}>{subtitle}</div>}
@@ -27,9 +24,9 @@ function VideoDropzone({ label, badge, badgeColor, hint, videoUrl, videoFile, vi
 
   return (
     <div style={{
-      border: badge === 'Required' ? '1.5px solid #16a34a' : '1.5px dashed #d1d5d1',
+      border: badgeColor === 'green' ? '1.5px solid #16a34a' : '1.5px dashed #d1d5d1',
       borderRadius: 12, padding: 16,
-      background: badge === 'Required' ? '#fff' : '#fafbfa',
+      background: badgeColor === 'green' ? '#fff' : '#fafbfa',
     }}>
       <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 4 }}>
         <span style={{ fontSize: 13, fontWeight: 500, color: '#0a1a0a' }}>{label}</span>
@@ -46,11 +43,7 @@ function VideoDropzone({ label, badge, badgeColor, hint, videoUrl, videoFile, vi
         <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
           <input ref={galleryRef} type="file" accept="video/mp4,video/quicktime,video/x-m4v,video/avi,video/webm" onChange={onUpload} style={{ display: 'none' }} />
           <input ref={cameraRef} type="file" accept="video/*" capture="environment" onChange={onUpload} style={{ display: 'none' }} />
-          <button onClick={() => galleryRef.current.click()} style={{
-            display: 'flex', alignItems: 'center', gap: 14, border: '1.5px solid #e5e9e5',
-            borderRadius: 12, padding: '16px 18px', cursor: 'pointer', background: '#fff',
-            textAlign: 'left', width: '100%', fontFamily: "'DM Sans', sans-serif",
-          }}
+          <button onClick={() => galleryRef.current.click()} style={{ display: 'flex', alignItems: 'center', gap: 14, border: '1.5px solid #e5e9e5', borderRadius: 12, padding: '16px 18px', cursor: 'pointer', background: '#fff', textAlign: 'left', width: '100%', fontFamily: "'DM Sans', sans-serif" }}
             onMouseEnter={e => { e.currentTarget.style.borderColor = '#16a34a'; e.currentTarget.style.background = '#f9fef9'; }}
             onMouseLeave={e => { e.currentTarget.style.borderColor = '#e5e9e5'; e.currentTarget.style.background = '#fff'; }}>
             <div style={{ width: 46, height: 46, borderRadius: 12, background: '#f0fdf4', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 22, flexShrink: 0 }}>📁</div>
@@ -59,11 +52,7 @@ function VideoDropzone({ label, badge, badgeColor, hint, videoUrl, videoFile, vi
               <div style={{ fontSize: 12, color: '#9ca39c', marginTop: 2 }}>Choose an existing video from your phone</div>
             </div>
           </button>
-          <button onClick={() => cameraRef.current.click()} style={{
-            display: 'flex', alignItems: 'center', gap: 14, border: '1.5px solid #e5e9e5',
-            borderRadius: 12, padding: '16px 18px', cursor: 'pointer', background: '#fff',
-            textAlign: 'left', width: '100%', fontFamily: "'DM Sans', sans-serif",
-          }}
+          <button onClick={() => cameraRef.current.click()} style={{ display: 'flex', alignItems: 'center', gap: 14, border: '1.5px solid #e5e9e5', borderRadius: 12, padding: '16px 18px', cursor: 'pointer', background: '#fff', textAlign: 'left', width: '100%', fontFamily: "'DM Sans', sans-serif" }}
             onMouseEnter={e => { e.currentTarget.style.borderColor = '#d97706'; e.currentTarget.style.background = '#fffdf7'; }}
             onMouseLeave={e => { e.currentTarget.style.borderColor = '#e5e9e5'; e.currentTarget.style.background = '#fff'; }}>
             <div style={{ width: 46, height: 46, borderRadius: 12, background: '#fff7ed', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 22, flexShrink: 0 }}>🎥</div>
@@ -75,31 +64,24 @@ function VideoDropzone({ label, badge, badgeColor, hint, videoUrl, videoFile, vi
         </div>
       ) : (
         <div>
-          <video
-            src={videoUrl}
-            controls
-            playsInline
-            preload="metadata"
-            style={{ width: '100%', borderRadius: 8, background: '#111', maxHeight: 220, display: 'block' }}
-          />
+          <video src={videoUrl} controls playsInline preload="metadata"
+            style={{ width: '100%', borderRadius: 8, background: '#111', maxHeight: 220, display: 'block' }} />
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginTop: 10 }}>
             <div style={{ fontSize: 12, color: videoDuration > 15 ? '#d97706' : '#16a34a', fontWeight: 500 }}>
               {videoDuration > 15 ? '⚠️' : '✓'} {videoFile?.name || 'Video ready'}
-              {videoFile && <span style={{ color: '#9ca39c', fontWeight: 400 }}> · {(videoFile.size / 1024 / 1024).toFixed(1)}MB</span>}
+              {videoFile && <span style={{ color: '#9ca39c', fontWeight: 400 }}> · {(videoFile.size/1024/1024).toFixed(1)}MB</span>}
               {videoDuration > 0 && <span style={{ color: videoDuration > 15 ? '#d97706' : '#9ca39c', fontWeight: 400 }}> · {videoDuration.toFixed(1)}s</span>}
             </div>
-            <button onClick={onClear} style={{ fontSize: 12, color: '#dc2626', background: 'none', border: 'none', cursor: 'pointer', fontFamily: "'DM Sans', sans-serif" }}>
-              Remove
-            </button>
+            <button onClick={onClear} style={{ fontSize: 12, color: '#dc2626', background: 'none', border: 'none', cursor: 'pointer', fontFamily: "'DM Sans', sans-serif" }}>Remove</button>
           </div>
           {videoDuration > 15 && videoDuration <= 20 && (
             <div style={{ marginTop: 8, padding: '8px 12px', background: '#fffbeb', border: '1px solid #fed7aa', borderRadius: 8, fontSize: 12, color: '#92400e', lineHeight: 1.5 }}>
-              ⚠️ Your video is {videoDuration.toFixed(0)}s long. For best results trim it to just the swing (3–8 seconds). You can still analyze but quality may be affected.
+              ⚠️ {videoDuration.toFixed(0)}s is a bit long. Best results with 3–8 second clips. iPhone: Photos → Edit → drag yellow handles to trim.
             </div>
           )}
           {videoDuration > 20 && (
             <div style={{ marginTop: 8, padding: '8px 12px', background: '#fef2f2', border: '1px solid #fecaca', borderRadius: 8, fontSize: 12, color: '#dc2626', lineHeight: 1.5 }}>
-              ✗ Video is too long ({videoDuration.toFixed(0)}s). Please trim to just your swing — 3 to 15 seconds max. Most phones have a built-in trim tool in the Photos app.
+              ✗ Video too long ({videoDuration.toFixed(0)}s). Please trim to under 20 seconds. iPhone: Photos → Edit → drag yellow handles.
             </div>
           )}
         </div>
@@ -122,11 +104,11 @@ export default function AnalyzePage() {
   const navigate = useNavigate();
   const [faceOnFile, setFaceOnFile] = useState(null);
   const [faceOnUrl, setFaceOnUrl] = useState('');
+  const [faceOnDuration, setFaceOnDuration] = useState(0);
   const [dtlFile, setDtlFile] = useState(null);
   const [dtlUrl, setDtlUrl] = useState('');
-  const [club, setClub] = useState('');
-  const [faceOnDuration, setFaceOnDuration] = useState(0);
   const [dtlDuration, setDtlDuration] = useState(0);
+  const [club, setClub] = useState('');
   const [notes, setNotes] = useState('');
   const [clubError, setClubError] = useState(false);
   const [analyzing, setAnalyzing] = useState(false);
@@ -144,7 +126,6 @@ export default function AnalyzePage() {
     setUrl(url);
     setDuration(0);
     setError('');
-    // Read video duration
     const vid = document.createElement('video');
     vid.preload = 'metadata';
     vid.onloadedmetadata = () => { setDuration(vid.duration); URL.revokeObjectURL(vid.src); };
@@ -163,35 +144,36 @@ export default function AnalyzePage() {
   const videoTooLong = maxDuration > 20;
   const canAnalyze = hasVideo && club && !analyzing && !videoTooLong;
 
+  async function fileToBase64(file) {
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onload = () => resolve(reader.result.split(',')[1]);
+      reader.onerror = reject;
+      reader.readAsDataURL(file);
+    });
+  }
+
   async function runAnalysis() {
     if (!club) { setClubError(true); setError('Please select a club before analyzing.'); return; }
     if (!hasVideo) { setError('Please upload at least one swing video.'); return; }
-    if (videoTooLong) { setError(`Video is ${maxDuration.toFixed(0)}s — please trim to under 20 seconds and try again.`); return; }
+    if (videoTooLong) { setError(`Video is ${maxDuration.toFixed(0)}s — please trim to under 20 seconds.`); return; }
     setClubError(false);
     setAnalyzing(true);
     setError('');
 
     try {
-      const primaryFile = faceOnFile || dtlFile;
       setAnalyzeStatus('Preparing your video...');
 
-      // Warn if video is very large
-      const sizeMB = primaryFile.size / 1024 / 1024;
-      if (sizeMB > 80) {
-        setError('Video is too large. Please trim it to under 30 seconds and try again.');
-        setAnalyzing(false);
-        setAnalyzeStatus('');
-        return;
+      // Convert primary video
+      const primaryFile = faceOnFile || dtlFile;
+      const videoData = await fileToBase64(primaryFile);
+
+      // Convert secondary video if present
+      let videoData2 = null;
+      if (faceOnFile && dtlFile) {
+        setAnalyzeStatus('Uploading both videos...');
+        videoData2 = await fileToBase64(dtlFile);
       }
-
-      setAnalyzeStatus('Uploading your swing video...');
-
-      const videoData = await new Promise((resolve, reject) => {
-        const reader = new FileReader();
-        reader.onload = () => resolve(reader.result.split(',')[1]);
-        reader.onerror = reject;
-        reader.readAsDataURL(primaryFile);
-      });
 
       setAnalyzeStatus('Uploading your swing video...');
 
@@ -201,7 +183,6 @@ export default function AnalyzePage() {
         setError('Analysis timed out — the servers may be busy. Please try again.');
       }, 180000);
 
-      // Use SSE stream to get real-time phase updates
       const token = localStorage.getItem('foreai_token');
       const BASE = import.meta.env.VITE_API_URL || '/api';
 
@@ -214,7 +195,9 @@ export default function AnalyzePage() {
           },
           body: JSON.stringify({
             videoData,
+            videoData2,
             mimeType: primaryFile.type || 'video/mp4',
+            mimeType2: dtlFile?.type || 'video/mp4',
             club,
             viewType: getViewType(),
             notes,
@@ -255,6 +238,7 @@ export default function AnalyzePage() {
           read();
         }).catch(reject);
       });
+
     } catch (err) {
       setError(err.message || 'Analysis failed. Please try again.');
     } finally {
@@ -271,10 +255,10 @@ export default function AnalyzePage() {
           <div style={{ fontSize: 22, fontFamily: "'Playfair Display', serif", color: '#0a1a0a', fontWeight: 700 }}>
             Fore<span style={{ color: '#4ade80', fontStyle: 'italic' }}>AI</span>
           </div>
-          <div style={{ fontSize: 13, color: '#9ca39c' }}>Analyzing {club} swing...</div>
+          <div style={{ fontSize: 13, color: '#9ca39c' }}>Analyzing {club} swing{faceOnFile && dtlFile ? ' (2 angles)' : ''}...</div>
         </nav>
         <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-          <SwingLoader status={analyzeStatus} />
+          <SwingLoader status={analyzeStatus} hasBothAngles={!!(faceOnFile && dtlFile)} />
         </div>
       </div>
     );
@@ -289,7 +273,17 @@ export default function AnalyzePage() {
   return (
     <div style={{ minHeight: '100vh', background: '#f4f7f4', fontFamily: "'DM Sans', sans-serif" }}>
       <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@300;400;500&family=Playfair+Display:ital,wght@0,700;1,400&display=swap" rel="stylesheet" />
-      <style>{`@media (max-width: 768px) { .page-grid { grid-template-columns: 1fr !important; } .club-grid { grid-template-columns: repeat(3, 1fr) !important; } .nav-name { display: none !important; } .desktop-summary { display: none !important; } .mobile-analyze { display: block !important; } .video-upload-grid { grid-template-columns: 1fr !important; } } @media (min-width: 769px) { .mobile-analyze { display: none !important; } }`}</style>
+      <style>{`
+        @media (max-width: 768px) {
+          .page-grid { grid-template-columns: 1fr !important; }
+          .club-grid { grid-template-columns: repeat(3, 1fr) !important; }
+          .nav-name { display: none !important; }
+          .desktop-summary { display: none !important; }
+          .mobile-analyze { display: block !important; }
+          .video-upload-grid { grid-template-columns: 1fr !important; }
+        }
+        @media (min-width: 769px) { .mobile-analyze { display: none !important; } }
+      `}</style>
 
       <nav style={{ background: '#fff', borderBottom: '1px solid #e5e9e5', padding: '0 20px', height: 56, display: 'flex', alignItems: 'center', justifyContent: 'space-between', position: 'sticky', top: 0, zIndex: 100 }}>
         <div onClick={() => navigate('/dashboard')} style={{ fontSize: 22, fontFamily: "'Playfair Display', serif", color: '#0a1a0a', fontWeight: 700, cursor: 'pointer' }}>
@@ -306,14 +300,10 @@ export default function AnalyzePage() {
       <div style={{ maxWidth: 1200, margin: '0 auto', padding: '24px 16px' }}>
         <div style={{ marginBottom: 24 }}>
           <h1 style={{ fontSize: 28, fontFamily: "'Playfair Display', serif", fontWeight: 700, color: '#0a1a0a', margin: '0 0 6px' }}>Analyze your swing</h1>
-          <p style={{ fontSize: 14, color: '#6b7a6b', margin: 0 }}>
-            Upload your video, select your club, and Gemini AI will watch your entire swing and coach you.
-          </p>
+          <p style={{ fontSize: 14, color: '#6b7a6b', margin: 0 }}>Upload your video, select your club, and our AI will coach you.</p>
         </div>
 
         <div className="page-grid" style={{ display: 'grid', gridTemplateColumns: '1fr 340px', gap: 24, alignItems: 'start' }}>
-
-          {/* LEFT — steps */}
           <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
 
             {/* Step 1 — Club */}
@@ -334,18 +324,18 @@ export default function AnalyzePage() {
 
             {/* Step 2 — Videos */}
             <div style={card}>
-              <StepLabel number="2" title="Upload your swing video(s)" subtitle="Face-on is recommended — down-the-line optional for deeper analysis" />
+              <StepLabel number="2" title="Upload your swing video(s)" subtitle="Face-on required — add down-the-line for deeper dual-angle analysis" />
               <div className="video-upload-grid" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16 }}>
                 <VideoDropzone
-                  label="Face-on view" badge="Recommended" badgeColor="green"
-                  hint="Film just your swing — 3 to 8 seconds ideal, 15s max. Best for rotation, posture & weight transfer."
+                  label="Face-on view" badge="Required" badgeColor="green"
+                  hint="Film from directly in front. Best for rotation, posture & weight transfer. 3–8s ideal, 20s max."
                   videoUrl={faceOnUrl} videoFile={faceOnFile} videoDuration={faceOnDuration}
                   onUpload={(e) => handleUpload(setFaceOnFile, setFaceOnUrl, setFaceOnDuration, e)}
                   onClear={() => { setFaceOnFile(null); setFaceOnUrl(''); setFaceOnDuration(0); }}
                 />
                 <VideoDropzone
                   label="Down-the-line view" badge="Optional" badgeColor="gray"
-                  hint="Film just your swing — 3 to 8 seconds ideal, 15s max. Best for club path & plane."
+                  hint="Film from behind along target line. Adds club path & plane analysis. Both angles = best results."
                   videoUrl={dtlUrl} videoFile={dtlFile} videoDuration={dtlDuration}
                   onUpload={(e) => handleUpload(setDtlFile, setDtlUrl, setDtlDuration, e)}
                   onClear={() => { setDtlFile(null); setDtlUrl(''); setDtlDuration(0); }}
@@ -353,7 +343,7 @@ export default function AnalyzePage() {
               </div>
               {faceOnFile && dtlFile && (
                 <div style={{ marginTop: 12, padding: '10px 14px', background: '#f0fdf4', borderRadius: 8, fontSize: 13, color: '#16a34a', fontWeight: 500 }}>
-                  🎯 Two angles uploaded — Gemini will analyze both for the most complete coaching report!
+                  🎯 Two angles uploaded — Claude will cross-reference both for the most complete analysis possible!
                 </div>
               )}
             </div>
@@ -375,13 +365,8 @@ export default function AnalyzePage() {
                 fontSize: 16, fontWeight: 500, cursor: !canAnalyze ? 'not-allowed' : 'pointer',
                 fontFamily: "'DM Sans', sans-serif",
               }}>
-                {analyzing ? `🤖 ${analyzeStatus || 'Analyzing...'}` : canAnalyze ? `🏌️ Analyze my swing →` : '🏌️ Analyze swing →'}
+                {canAnalyze ? `🏌️ Analyze my swing →` : '🏌️ Analyze swing →'}
               </button>
-              {analyzing && (
-                <div style={{ textAlign: 'center', fontSize: 12, color: '#6b7a6b', lineHeight: 1.8, marginTop: 12 }}>
-                  Gemini AI is watching your full swing video...<br />This takes about 20-30 seconds.
-                </div>
-              )}
             </div>
           </div>
 
@@ -394,9 +379,9 @@ export default function AnalyzePage() {
                 <SummaryRow label="Face-on video" value={faceOnFile ? `✓ ${(faceOnFile.size/1024/1024).toFixed(1)}MB` : 'Not uploaded'} done={!!faceOnFile} />
                 <SummaryRow label="Down-the-line" value={dtlFile ? `✓ ${(dtlFile.size/1024/1024).toFixed(1)}MB` : 'Not uploaded'} done={!!dtlFile} />
               </div>
-              {canAnalyze && (
-                <div style={{ marginTop: 12, padding: '8px 12px', background: '#fff', borderRadius: 8, fontSize: 12, color: '#16a34a', fontWeight: 500 }}>
-                  {faceOnFile && dtlFile ? '🎯 Dual-angle — best possible analysis!' : '✓ Ready to analyze!'}
+              {faceOnFile && dtlFile && (
+                <div style={{ marginTop: 10, padding: '8px 12px', background: '#fff', borderRadius: 8, fontSize: 12, color: '#16a34a', fontWeight: 500 }}>
+                  🎯 Dual-angle — maximum analysis depth!
                 </div>
               )}
             </div>
@@ -409,14 +394,8 @@ export default function AnalyzePage() {
               fontSize: 15, fontWeight: 500, cursor: !canAnalyze ? 'not-allowed' : 'pointer',
               fontFamily: "'DM Sans', sans-serif", width: '100%',
             }}>
-              {analyzing ? `🤖 ${analyzeStatus || 'Analyzing...'}` : canAnalyze ? `🏌️ Analyze my swing →` : '🏌️ Analyze swing →'}
+              {canAnalyze ? `🏌️ Analyze my swing →` : '🏌️ Analyze swing →'}
             </button>
-
-            {analyzing && (
-              <div style={{ textAlign: 'center', fontSize: 12, color: '#6b7a6b', lineHeight: 1.8 }}>
-                Gemini AI is watching your full swing...<br />This takes about 20-30 seconds.
-              </div>
-            )}
           </div>
         </div>
       </div>
