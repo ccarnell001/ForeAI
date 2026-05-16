@@ -4,26 +4,13 @@ import path from 'path';
 import os from 'os';
 import { requireAuth } from '../middleware/auth.js';
 import { checkQuota, incrementQuota } from '../middleware/quota.js';
-import { getSwingTimestamps } from '../services/gemini.js';
-import { extractFramesAtTimestamps } from '../services/frameExtractor.js';
+import { analyzeVideoAndGetWindow } from '../services/gemini.js';
+import { extractEvenFrames } from '../services/frameExtractor.js';
 import { analyzeSwingFrames } from '../services/claude.js';
 import { uploadSessionFrames } from '../services/r2.js';
 import { pool } from '../db/index.js';
 
 const router = express.Router();
-
-function attachFramesByIndex(phases, primaryFrames, secondaryFrames) {
-  return phases.map((phase, i) => {
-    const primaryFrame = primaryFrames[i] || null;
-    const secondaryFrame = secondaryFrames[i] || null;
-    console.log(`  Phase ${i+1} "${phase.name}" → primary[${i}]="${primaryFrame?.label || 'none'}" secondary[${i}]="${secondaryFrame?.label || 'none'}"`);
-    return {
-      ...phase,
-      frameImage: primaryFrame?.data || null,
-      frameImage2: secondaryFrame?.data || null,
-    };
-  });
-}
 
 router.post('/', requireAuth, checkQuota, async (req, res) => {
   const { videoData, videoData2, mimeType, mimeType2, club, viewType, notes, title } = req.body;
@@ -45,6 +32,7 @@ router.post('/', requireAuth, checkQuota, async (req, res) => {
   const sendError = (error) => { res.write(`data: ${JSON.stringify({ type: 'error', error })}\n\n`); res.end(); };
 
   try {
+    // Write videos to temp files
     const videoBuffer1 = Buffer.from(videoData, 'base64');
     fs.writeFileSync(tmpFile1, videoBuffer1);
     console.log(`🎬 Primary video: ${(videoBuffer1.length/1024/1024).toFixed(1)}MB`);
@@ -57,44 +45,56 @@ router.post('/', requireAuth, checkQuota, async (req, res) => {
 
     sendStatus('uploading', 'Video received — starting analysis...');
 
-    console.log('⏱️  Phase 1: Gemini identifying key swing positions...');
-    sendStatus('gemini', 'Gemini is finding key swing positions...');
-    const timestamps = await getSwingTimestamps(tmpFile1, mimeType || 'video/mp4');
-    console.log('✅ Timestamps:', JSON.stringify(timestamps));
+    // Phase 1: Gemini watches full video, identifies swing window + observations
+    console.log('👁️  Phase 1: Gemini watching full swing video...');
+    sendStatus('gemini', 'Gemini is watching your full swing...');
+    const geminiResult = await analyzeVideoAndGetWindow(tmpFile1, mimeType || 'video/mp4');
+    const { swingStart, swingEnd, videoObservations } = geminiResult;
+    console.log(`✅ Swing window: ${swingStart?.toFixed(2)}s → ${swingEnd?.toFixed(2)}s`);
 
-    console.log('🖼️  Phase 2: Extracting frames...');
-    sendStatus('extracting', videoData2 ? 'Extracting frames from both videos...' : 'Extracting frames at key positions...');
-    const primaryFrames = await extractFramesAtTimestamps(tmpFile1, timestamps, 'face-on');
-    console.log(`✅ Primary frames extracted: ${primaryFrames.length}`);
+    // Phase 2: Extract 8 evenly-spaced frames within swing window
+    console.log('🖼️  Phase 2: Extracting frames from swing window...');
+    sendStatus('extracting', videoData2 ? 'Extracting frames from both angles...' : 'Extracting 8 swing frames...');
+
+    const primaryFrames = await extractEvenFrames(tmpFile1, swingStart, swingEnd, 'face-on', 8);
+    console.log(`✅ Primary frames: ${primaryFrames.length}`);
 
     let secondaryFrames = [];
     if (tmpFile2) {
-      secondaryFrames = await extractFramesAtTimestamps(tmpFile2, timestamps, 'dtl');
-      console.log(`✅ Secondary frames extracted: ${secondaryFrames.length}`);
+      // For DTL, use same relative window but scaled to its duration
+      secondaryFrames = await extractEvenFrames(tmpFile2, swingStart, swingEnd, 'dtl', 8);
+      console.log(`✅ Secondary frames: ${secondaryFrames.length}`);
     }
 
     const allFrames = [...primaryFrames, ...secondaryFrames];
     console.log(`✅ Total frames: ${allFrames.length}`);
+
     if (primaryFrames.length === 0) throw new Error('Could not extract frames from video. Please try a different format.');
 
     const userResult = await pool.query('SELECT handicap FROM users WHERE id = $1', [userId]);
     const handicap = userResult.rows[0]?.handicap;
     const hasBothAngles = secondaryFrames.length > 0;
 
-    console.log('🧠 Phase 3: Claude analyzing swing positions...');
-    sendStatus('claude', 'Claude is analyzing each swing position...');
+    // Phase 3: Claude analyzes frames + Gemini's video observations
+    console.log('🧠 Phase 3: Claude analyzing frames + video observations...');
+    sendStatus('claude', 'Claude is analyzing your swing...');
     const report = await analyzeSwingFrames(allFrames, {
-      club, viewType: hasBothAngles ? 'both angles' : (viewType || 'face-on'),
+      club,
+      viewType: hasBothAngles ? 'both angles' : (viewType || 'face-on'),
       notes, userName, handicap, hasBothAngles,
+      videoObservations, // Pass Gemini's observations to Claude
     });
     console.log(`✅ Analysis complete — score: ${report.overallScore}`);
 
-    // Attach frames by index
-    console.log('🗺️  Attaching frames by index order...');
+    // Attach frames to phases by index
     const reportWithFrames = {
       ...report,
       hasBothAngles,
-      phases: attachFramesByIndex(report.phases || [], primaryFrames, secondaryFrames),
+      phases: (report.phases || []).map((phase, i) => ({
+        ...phase,
+        frameImage: primaryFrames[i]?.data || null,
+        frameImage2: secondaryFrames[i]?.data || null,
+      })),
     };
 
     // Save session to database
@@ -105,7 +105,7 @@ router.post('/', requireAuth, checkQuota, async (req, res) => {
     );
     const sessionId = sessionResult.rows[0].id;
 
-    // Upload frames to R2 in background (don't block response)
+    // Upload frames to R2
     sendStatus('saving', 'Saving your swing frames...');
     let frameUrls = {};
     try {
@@ -115,10 +115,8 @@ router.post('/', requireAuth, checkQuota, async (req, res) => {
       console.error('⚠️ R2 upload failed (non-fatal):', err.message);
     }
 
-    // Save analysis with frame URLs
     await pool.query(
-      `INSERT INTO analyses (session_id, user_id, frame_count, report, frame_urls)
-       VALUES ($1, $2, $3, $4, $5)`,
+      `INSERT INTO analyses (session_id, user_id, frame_count, report, frame_urls) VALUES ($1, $2, $3, $4, $5)`,
       [sessionId, userId, allFrames.length, JSON.stringify(report), JSON.stringify(frameUrls)]
     );
 

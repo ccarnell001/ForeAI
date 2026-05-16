@@ -2,84 +2,59 @@ import Anthropic from '@anthropic-ai/sdk';
 
 const client = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
 
-const SYSTEM_PROMPT = `You are ForeAI, an elite golf swing coach and biomechanics expert with 20+ years experience coaching players from beginners to tour professionals.
+const SYSTEM_PROMPT = `You are ForeAI, an elite golf swing coach and biomechanics expert with 20+ years experience.
 
-You are analyzing precisely extracted frames from a golf swing. Each frame is labeled with its angle (Face-on or DTL/Down-the-line) and swing position.
+You are analyzing 8 evenly-spaced frames captured across the entire golf swing, from address through follow-through. The frames are labeled in chronological order:
+1. Address / Setup
+2. Takeaway  
+3. Halfway Back
+4. Top of Backswing
+5. Transition
+6. Pre-Impact
+7. Impact
+8. Follow Through
 
-When BOTH angles are provided for a position, cross-reference them:
-- Face-on shows: rotation, posture, weight shift, spine angle, shoulder/hip tilt
-- DTL shows: club path, swing plane, hand position, extension, club face angle
+You also have observations from Gemini AI which watched the FULL VIDEO — use these to understand motion, tempo, and patterns between frames that static images can't show.
 
-Analyze each position with precision:
-ADDRESS: spine angle, ball position, grip, weight distribution, knee flex
-TAKEAWAY: club path, wrist hinge, hip stability
-HALFWAY BACK: club shaft angle, wrist hinge, shoulder turn
-TOP OF BACKSWING: shoulder/hip turn degrees, wrist position, club position
-TRANSITION: sequence order, lag creation, weight shift
+When BOTH face-on AND DTL frames are provided, cross-reference them:
+- Face-on: rotation, posture, weight shift, spine angle
+- DTL: club path, swing plane, hand position, club face
+
+Analyze each frame carefully:
+ADDRESS: spine angle, ball position, grip, stance width, weight distribution, posture
+TAKEAWAY: club path (inside/outside/on-plane), wrist conditions, hip stability
+HALFWAY BACK: club shaft angle, wrist hinge, shoulder turn progress
+TOP OF BACKSWING: shoulder vs hip turn ratio, wrist position (flat/cupped/bowed), club position, weight
+TRANSITION: sequence (hips lead?), lag creation, spine angle maintenance
 PRE-IMPACT: hands ahead of ball, hip clearance, lag retention
-IMPACT: shaft lean, face angle, hip position, head behind ball
-FOLLOW THROUGH: extension, rotation, balance, finish
+IMPACT: shaft lean, face angle estimate, hip position, head behind ball
+FOLLOW THROUGH: extension, rotation, balance, finish position
 
 ANNOTATION INSTRUCTIONS:
-For each phase provide 2-3 annotations as percentage coordinates (0.0-1.0) of frame dimensions.
+For each phase provide 2-3 annotations. Coordinates are percentages (0.0-1.0) of frame dimensions.
 Types: SPINE_ANGLE, SHOULDER_LINE, HIP_LINE, CLUB_PATH, ARM_LINE, WEIGHT_SHIFT, HEAD_POSITION
 Colors: red, yellow, cyan, white, orange
 
-CRITICAL: Return ONLY valid JSON. No markdown. No backticks. No explanation. Start your response with { and end with }.`;
-
-export async function analyzeSwingFrames(frames, metadata) {
-  const { club, viewType, notes, userName, handicap, hasBothAngles } = metadata;
-
-  const imageContent = [];
-  frames.forEach((frame, i) => {
-    imageContent.push({
-      type: 'text',
-      text: `Frame ${i + 1} — ${frame.displayLabel || frame.label} (${frame.timestamp?.toFixed(2)}s):`,
-    });
-    imageContent.push({
-      type: 'image',
-      source: { type: 'base64', media_type: frame.mediaType || 'image/jpeg', data: frame.data },
-    });
-  });
-
-  const frameList = frames.map((f, i) =>
-    `Frame ${i + 1}: ${f.displayLabel || f.label} at ${f.timestamp?.toFixed(2)}s`
-  ).join('\n');
-
-  const prompt = `Analyze ${userName}'s golf swing.
-
-Frames provided:
-${frameList}
-
-${hasBothAngles ? '✅ Both face-on AND down-the-line angles — cross-reference for maximum accuracy.' : ''}
-${club ? `Club: ${club}` : ''}
-${handicap ? `Handicap: ${handicap}` : ''}
-${notes ? `Notes: "${notes}"` : ''}
-
-Use EXACTLY these phase names: Address / Setup, Takeaway, Halfway Back, Top of Backswing, Transition, Pre-Impact, Impact, Follow Through
-
-Return this exact JSON structure (no markdown, start with {):
+Return ONLY valid JSON starting with {:
 {
   "overallScore": <1-100>,
-  "summary": "<2-3 sentences>",
+  "summary": "<2-3 sentences referencing both frame observations and video motion analysis>",
   "viewType": "<face-on|down-the-line|both angles>",
   "phases": [
     {
-      "name": "<exact phase name from list above>",
+      "name": "<exact label: Address / Setup, Takeaway, Halfway Back, Top of Backswing, Transition, Pre-Impact, Impact, Follow Through>",
       "timestamp": <seconds>,
       "score": <1-100>,
-      "observations": ["<observation>"],
-      "positives": ["<positive>"],
-      "improvements": ["<improvement>"],
+      "observations": ["<specific observation>"],
+      "positives": ["<strength>"],
+      "improvements": ["<actionable fix>"],
       "annotations": [
         {
           "type": "<type>",
           "label": "<short label>",
           "color": "<color>",
-          "x1": <0.0-1.0>,
-          "y1": <0.0-1.0>,
-          "x2": <0.0-1.0>,
-          "y2": <0.0-1.0>,
+          "x1": <0.0-1.0>, "y1": <0.0-1.0>,
+          "x2": <0.0-1.0>, "y2": <0.0-1.0>,
           "note": "<coaching note>"
         }
       ]
@@ -88,15 +63,62 @@ Return this exact JSON structure (no markdown, start with {):
   "topPriorities": [
     {
       "title": "<title>",
-      "description": "<description>",
+      "description": "<description referencing specific frames and video observations>",
       "drill": "<drill name>",
       "drillDescription": "<how to do it>",
       "youtubeSearch": "<search query>"
     }
   ],
   "prosToStudy": [{"name": "<name>", "reason": "<reason>"}],
-  "encouragement": "<message>"
+  "encouragement": "<personalized message>"
 }`;
+
+export async function analyzeSwingFrames(frames, metadata) {
+  const { club, viewType, notes, userName, handicap, hasBothAngles, videoObservations } = metadata;
+
+  const imageContent = [];
+  frames.forEach((frame, i) => {
+    imageContent.push({
+      type: 'text',
+      text: `Frame ${i + 1} of ${frames.length} — ${frame.displayLabel || frame.label} @ ${frame.timestamp?.toFixed(2)}s:`,
+    });
+    imageContent.push({
+      type: 'image',
+      source: { type: 'base64', media_type: frame.mediaType || 'image/jpeg', data: frame.data },
+    });
+  });
+
+  const frameList = frames.map((f, i) =>
+    `Frame ${i + 1}: ${f.displayLabel || f.label} @ ${f.timestamp?.toFixed(2)}s`
+  ).join('\n');
+
+  // Format Gemini's video observations
+  const geminiContext = videoObservations ? `
+GEMINI VIDEO ANALYSIS (from watching the full swing video):
+- Tempo: ${videoObservations.tempo || 'Not observed'}
+- Takeaway: ${videoObservations.takeaway || 'Not observed'}
+- Backswing: ${videoObservations.backswing || 'Not observed'}
+- Transition: ${videoObservations.transition || 'Not observed'}
+- Downswing: ${videoObservations.downswing || 'Not observed'}
+- Impact: ${videoObservations.impact || 'Not observed'}
+- Follow Through: ${videoObservations.followThrough || 'Not observed'}
+- Key Faults Observed in Video: ${videoObservations.keyFaults?.join('; ') || 'None noted'}
+- Key Strengths Observed in Video: ${videoObservations.keyStrengths?.join('; ') || 'None noted'}
+
+Use these video observations to add context to what you see in the frames.` : '';
+
+  const prompt = `Analyze ${userName}'s golf swing.
+
+FRAMES PROVIDED (8 evenly-spaced across the swing):
+${frameList}
+
+${geminiContext}
+${hasBothAngles ? '✅ Both face-on AND DTL angles provided — cross-reference for maximum accuracy.' : ''}
+${club ? `Club: ${club}` : ''}
+${handicap ? `Handicap: ${handicap} — calibrate feedback accordingly` : ''}
+${notes ? `Golfer notes: "${notes}"` : ''}
+
+Analyze each frame precisely. Use Gemini's video observations to understand motion between frames. Return ONLY valid JSON starting with {.`;
 
   let response;
   let retries = 0;
@@ -116,59 +138,32 @@ Return this exact JSON structure (no markdown, start with {):
         JSON.stringify(err?.message || '').includes('high demand');
       if (isOverload && retries < 4) {
         const wait = retries * 12000;
-        console.log(`Claude overloaded, retrying in ${wait/1000}s (attempt ${retries}/3)...`);
+        console.log(`Claude overloaded, retrying in ${wait/1000}s...`);
         await new Promise(r => setTimeout(r, wait));
       } else throw err;
     }
   }
 
   const raw = response.content[0].text;
-  console.log(`📝 Claude response length: ${raw.length} chars`);
-  console.log(`📝 Claude response start: ${raw.substring(0, 200)}`);
-  console.log(`📝 Claude response end: ${raw.substring(raw.length - 200)}`);
+  console.log(`📝 Claude response: ${raw.length} chars`);
 
   const cleaned = raw.replace(/```json|```/g, '').trim();
+  const jsonStart = cleaned.indexOf('{');
+  if (jsonStart === -1) throw new Error('Could not parse AI response. Please try again.');
+  const jsonStr = cleaned.substring(jsonStart);
 
   try {
-    return JSON.parse(cleaned);
+    return JSON.parse(jsonStr);
   } catch (e) {
-    console.log('⚠️ Initial JSON parse failed, attempting repair...');
-
-    // Find the JSON object
-    const jsonStart = cleaned.indexOf('{');
-    if (jsonStart === -1) throw new Error('Could not parse AI response. Please try again.');
-
-    let partial = cleaned.substring(jsonStart);
-
-    // Count unclosed brackets and repair
-    let depth = 0;
-    let arrDepth = 0;
-    let inString = false;
-    let escape = false;
-
-    for (const ch of partial) {
-      if (escape) { escape = false; continue; }
-      if (ch === '\\' && inString) { escape = true; continue; }
-      if (ch === '"') { inString = !inString; continue; }
-      if (inString) continue;
-      if (ch === '{') depth++;
-      if (ch === '}') depth--;
-      if (ch === '[') arrDepth++;
-      if (ch === ']') arrDepth--;
-    }
-
-    // Close any open structures
-    for (let i = 0; i < arrDepth; i++) partial += ']';
-    for (let i = 0; i < depth; i++) partial += '}';
-
-    try {
-      const repaired = JSON.parse(partial);
-      console.log('✅ JSON repaired successfully');
-      return repaired;
-    } catch (e2) {
-      console.log('❌ JSON repair failed:', e2.message);
-      console.log('Raw response snippet:', cleaned.substring(0, 500));
-      throw new Error('Could not parse AI response. Please try again.');
-    }
+    console.log('⚠️ Repairing JSON...');
+    let partial = jsonStr;
+    const opens = (partial.match(/\{/g) || []).length;
+    const closes = (partial.match(/\}/g) || []).length;
+    const arrOpens = (partial.match(/\[/g) || []).length;
+    const arrCloses = (partial.match(/\]/g) || []).length;
+    for (let i = 0; i < arrOpens - arrCloses; i++) partial += ']';
+    for (let i = 0; i < opens - closes; i++) partial += '}';
+    try { return JSON.parse(partial); }
+    catch { throw new Error('Could not parse AI response. Please try again.'); }
   }
 }

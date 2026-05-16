@@ -1,47 +1,50 @@
 import { GoogleGenAI } from '@google/genai';
 import fs from 'fs';
-import path from 'path';
-import os from 'os';
 
 const genai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
 
-const TIMESTAMP_PROMPT = `You are analyzing a golf swing video. Your ONLY job is to identify the exact timestamps (in seconds) of 8 key positions.
+const VIDEO_ANALYSIS_PROMPT = `You are an expert golf swing analyst. Watch this entire golf swing video carefully.
 
-CRITICAL RULES:
-- Each timestamp MUST be different — no two positions can share the same timestamp
-- Timestamps must be in ASCENDING ORDER (address < takeaway < halfwayBack < topOfBackswing < transition < preImpact < impact < followThrough)
-- Spread them across the FULL duration of the swing — do not cluster them together
-- Minimum gap between consecutive timestamps: 0.1 seconds
-- If you cannot identify a position precisely, interpolate between surrounding positions
+Your job is to provide two things:
 
-Return ONLY this JSON object (no markdown, no explanation):
+1. SWING WINDOW: Identify when the actual swing starts and ends (ignore pre-swing setup time and post-swing follow-through walking away).
+
+2. VIDEO OBSERVATIONS: Describe what you actually see happening in the swing as a whole. Focus on motion, tempo, and patterns you can only see by watching the full video — things you couldn't determine from a single frame.
+
+Be specific about:
+- Overall tempo and rhythm (rushed? smooth? jerky?)
+- Takeaway pattern (inside? outside? one-piece?)
+- Any lateral sway or head movement during backswing
+- Hip/shoulder sequence on downswing (do hips clear first?)
+- Club path through impact (inside-out? over the top?)
+- Weight transfer pattern
+- Any early extension or standing up through impact
+- Follow-through completeness and balance
+
+Return ONLY this JSON (no markdown):
 {
-  "address": <seconds - earliest timestamp>,
-  "takeaway": <seconds>,
-  "halfwayBack": <seconds>,
-  "topOfBackswing": <seconds>,
-  "transition": <seconds>,
-  "preImpact": <seconds>,
-  "impact": <seconds>,
-  "followThrough": <seconds - latest timestamp>
-}
+  "swingStart": <seconds when golfer begins backswing>,
+  "swingEnd": <seconds when follow-through is complete>,
+  "swingDuration": <total seconds of actual swing>,
+  "videoObservations": {
+    "tempo": "<description of overall tempo and rhythm>",
+    "takeaway": "<what you observed about the takeaway>",
+    "backswing": "<what you observed in the backswing>",
+    "transition": "<what you observed at the top and transition>",
+    "downswing": "<what you observed on the downswing>",
+    "impact": "<what you observed at and through impact>",
+    "followThrough": "<what you observed in the follow-through>",
+    "keyFaults": ["<fault 1>", "<fault 2>", "<fault 3>"],
+    "keyStrengths": ["<strength 1>", "<strength 2>"]
+  }
+}`;
 
-Definitions:
-- address: golfer still at ball, ready to swing (start of sequence)
-- takeaway: club moving back, shaft roughly parallel to ground  
-- halfwayBack: lead arm parallel to ground
-- topOfBackswing: club at highest point, maximum shoulder turn
-- transition: backswing ends, downswing begins
-- preImpact: hands at hip height on downswing
-- impact: club at or near ball
-- followThrough: club past ball, arms extending (end of sequence)`;
-
-export async function getSwingTimestamps(tmpFile, mimeType) {
+export async function analyzeVideoAndGetWindow(tmpFile, mimeType) {
   let uploadedFile = null;
   try {
     uploadedFile = await genai.files.upload({
       file: tmpFile,
-      config: { mimeType, displayName: `timestamps_${Date.now()}` },
+      config: { mimeType, displayName: `analysis_${Date.now()}` },
     });
 
     let file = uploadedFile;
@@ -68,13 +71,13 @@ export async function getSwingTimestamps(tmpFile, mimeType) {
           contents: [{
             role: 'user',
             parts: [
-              { fileData: { mimeType: file.mimeType, fileUri: file.uri }, videoMetadata: { fps: 6 } },
-              { text: TIMESTAMP_PROMPT }
+              { fileData: { mimeType: file.mimeType, fileUri: file.uri }, videoMetadata: { fps: 8 } },
+              { text: VIDEO_ANALYSIS_PROMPT }
             ]
           }],
           config: {
-            systemInstruction: 'Return only valid JSON. No markdown. No explanation. Ensure all 8 timestamps are unique and in ascending order.',
-            temperature: 0.1
+            systemInstruction: 'Return only valid JSON. Watch the full video carefully before responding.',
+            temperature: 0.2
           },
         });
         break;
@@ -87,20 +90,13 @@ export async function getSwingTimestamps(tmpFile, mimeType) {
     }
 
     const text = response.text.replace(/```json|```/g, '').trim();
-    const timestamps = JSON.parse(text);
+    const result = JSON.parse(text);
 
-    // Validate and fix timestamps — ensure they are unique and ascending
-    const phases = ['address','takeaway','halfwayBack','topOfBackswing','transition','preImpact','impact','followThrough'];
-    let lastTime = -1;
-    for (const phase of phases) {
-      if (timestamps[phase] <= lastTime) {
-        timestamps[phase] = lastTime + 0.15; // Force minimum gap
-        console.warn(`  ⚠️ Fixed timestamp for ${phase}: set to ${timestamps[phase]}`);
-      }
-      lastTime = timestamps[phase];
-    }
+    console.log(`🎯 Swing window: ${result.swingStart?.toFixed(2)}s → ${result.swingEnd?.toFixed(2)}s (${result.swingDuration?.toFixed(2)}s)`);
+    console.log(`👁️  Key faults: ${result.videoObservations?.keyFaults?.join(', ')}`);
+    console.log(`💪 Key strengths: ${result.videoObservations?.keyStrengths?.join(', ')}`);
 
-    return timestamps;
+    return result;
 
   } finally {
     if (uploadedFile?.name) {

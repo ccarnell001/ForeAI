@@ -3,89 +3,59 @@ import path from 'path';
 import os from 'os';
 import fs from 'fs';
 
-const PHASE_LABELS = {
-  address: 'Address / Setup',
-  takeaway: 'Takeaway',
-  halfwayBack: 'Halfway Back',
-  topOfBackswing: 'Top of Backswing',
-  transition: 'Transition',
-  preImpact: 'Pre-Impact',
-  impact: 'Impact',
-  followThrough: 'Follow Through',
-};
+// 8 position labels in chronological order
+const POSITION_LABELS = [
+  'Address / Setup',
+  'Takeaway',
+  'Halfway Back',
+  'Top of Backswing',
+  'Transition',
+  'Pre-Impact',
+  'Impact',
+  'Follow Through',
+];
 
-// Get video duration using ffprobe
 function getVideoDuration(videoPath) {
   return new Promise((resolve) => {
     ffmpeg.ffprobe(videoPath, (err, metadata) => {
-      if (err) {
-        console.warn(`⚠️ Could not get duration for ${videoPath}: ${err.message}`);
-        resolve(null);
-      } else {
-        const duration = metadata?.format?.duration || null;
-        console.log(`  📹 Video duration: ${duration?.toFixed(2)}s`);
-        resolve(duration);
-      }
+      if (err) { resolve(null); return; }
+      resolve(metadata?.format?.duration || null);
     });
   });
 }
 
-export async function extractFramesAtTimestamps(videoPath, timestamps, angle = 'face-on') {
+export async function extractEvenFrames(videoPath, swingStart, swingEnd, angle = 'face-on', frameCount = 8) {
   const tmpDir = os.tmpdir();
   const frames = [];
   const angleLabel = angle === 'dtl' ? 'DTL' : 'Face-on';
 
-  // Get video duration to avoid seeking past end
+  // Get actual video duration
   const duration = await getVideoDuration(videoPath);
+  console.log(`  📹 ${angleLabel} video duration: ${duration?.toFixed(2)}s`);
 
-  // Sort timestamps chronologically
-  const sortedEntries = Object.entries(timestamps)
-    .filter(([, sec]) => sec !== null && sec !== undefined)
-    .sort(([, a], [, b]) => a - b);
+  // Cap swing window to actual video duration
+  const videoEnd = duration ? duration - 0.1 : swingEnd;
+  const effectiveStart = Math.max(0, swingStart);
+  const effectiveEnd = Math.min(videoEnd, swingEnd);
+  const swingSpan = effectiveEnd - effectiveStart;
 
-  console.log(`  Extracting ${sortedEntries.length} frames for ${angleLabel}...`);
+  console.log(`  🎯 Extracting ${frameCount} frames from ${effectiveStart.toFixed(2)}s → ${effectiveEnd.toFixed(2)}s`);
 
-  for (const [phase, seconds] of sortedEntries) {
-    // Skip if timestamp is beyond video duration (with 0.2s buffer)
-    if (duration && seconds > duration - 0.1) {
-      console.warn(`  ⚠️ Skipping ${phase} @ ${seconds}s — beyond video duration (${duration?.toFixed(2)}s)`);
-      continue;
-    }
-
-    // For DTL, scale timestamps proportionally if video is shorter
-    let seekTime = seconds;
-    if (duration && angle === 'dtl') {
-      // Get primary video duration from first timestamp to last
-      const allTimes = sortedEntries.map(([, s]) => s);
-      const primaryStart = allTimes[0];
-      const primaryEnd = allTimes[allTimes.length - 1];
-      const primarySpan = primaryEnd - primaryStart;
-
-      if (primarySpan > 0 && duration < primaryEnd) {
-        // Scale timestamp proportionally to DTL video duration
-        const ratio = (seconds - primaryStart) / primarySpan;
-        const dtlStart = allTimes[0];
-        const dtlEnd = Math.min(duration - 0.2, primaryEnd);
-        seekTime = dtlStart + ratio * (dtlEnd - dtlStart);
-        seekTime = Math.max(0, Math.min(seekTime, duration - 0.1));
-        console.log(`  📐 Scaled ${phase}: ${seconds}s → ${seekTime.toFixed(2)}s for DTL`);
-      }
-    }
-
-    const outputPath = path.join(tmpDir, `frame_${angle}_${phase}_${Date.now()}.jpg`);
+  // Space frames evenly across the swing window
+  for (let i = 0; i < frameCount; i++) {
+    const ratio = frameCount === 1 ? 0.5 : i / (frameCount - 1);
+    const seekTime = effectiveStart + ratio * swingSpan;
+    const label = POSITION_LABELS[i] || `Frame ${i + 1}`;
+    const outputPath = path.join(tmpDir, `frame_${angle}_${i}_${Date.now()}.jpg`);
 
     await new Promise((resolve) => {
       ffmpeg(videoPath)
-        .inputOptions([`-ss ${seekTime}`])
-        .outputOptions([
-          '-frames:v 1',
-          '-vf scale=1280:-1',
-          '-q:v 2',
-        ])
+        .inputOptions([`-ss ${seekTime.toFixed(3)}`])
+        .outputOptions(['-frames:v 1', '-vf scale=1280:-1', '-q:v 2'])
         .output(outputPath)
         .on('end', resolve)
         .on('error', (err) => {
-          console.warn(`  ⚠️ Frame extraction warning for ${phase} at ${seekTime}s: ${err.message}`);
+          console.warn(`  ⚠️ Frame ${i+1} warning at ${seekTime.toFixed(2)}s: ${err.message}`);
           resolve();
         })
         .run();
@@ -95,29 +65,24 @@ export async function extractFramesAtTimestamps(videoPath, timestamps, angle = '
       const stats = fs.statSync(outputPath);
       if (stats.size > 1000) {
         const data = fs.readFileSync(outputPath);
-        const base64 = data.toString('base64');
-        const baseLabel = PHASE_LABELS[phase] || phase;
         frames.push({
-          phase,
-          label: baseLabel,
+          index: i,
+          label,
           angleLabel,
-          displayLabel: `${angleLabel}: ${baseLabel}`,
+          displayLabel: `${angleLabel}: ${label}`,
           timestamp: seekTime,
-          data: base64,
+          data: data.toString('base64'),
           mediaType: 'image/jpeg',
           angle,
         });
-        console.log(`  ✓ ${angleLabel} ${baseLabel} @ ${seekTime.toFixed(2)}s (${(stats.size/1024).toFixed(0)}KB)`);
+        console.log(`  ✓ ${angleLabel} Frame ${i+1} "${label}" @ ${seekTime.toFixed(2)}s (${(stats.size/1024).toFixed(0)}KB)`);
       } else {
-        console.warn(`  ⚠️ Frame too small for ${phase} @ ${seekTime}s`);
+        console.warn(`  ⚠️ Frame ${i+1} too small at ${seekTime.toFixed(2)}s`);
       }
       fs.unlinkSync(outputPath);
-    } else {
-      console.warn(`  ⚠️ No output file for ${phase} @ ${seekTime}s`);
     }
   }
 
-  frames.sort((a, b) => a.timestamp - b.timestamp);
-  console.log(`  ✅ ${angleLabel} extraction complete: ${frames.length} frames`);
+  console.log(`  ✅ ${angleLabel} extraction complete: ${frames.length}/${frameCount} frames`);
   return frames;
 }

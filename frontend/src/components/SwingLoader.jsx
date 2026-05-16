@@ -1,8 +1,9 @@
 export default function SwingLoader({ status, hasBothAngles }) {
   const s = status || '';
   const isGemini = s.includes('Gemini');
-  const isExtracting = s.includes('Extracting');
+  const isExtracting = s.includes('Extracting') || s.includes('frames');
   const isClaude = s.includes('Claude');
+  const isSaving = s.includes('Saving');
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '48px 24px', fontFamily: "'DM Sans', sans-serif" }}>
@@ -69,19 +70,20 @@ export default function SwingLoader({ status, hasBothAngles }) {
           {s || 'Analyzing your swing...'}
         </div>
         <div style={{ fontSize: 12, color: '#4b5e4b', marginBottom: 22, lineHeight: 1.5 }}>
-          {hasBothAngles ? 'Analyzing both angles for maximum accuracy' : 'This takes about 30–50 seconds'}
+          {hasBothAngles ? 'Analyzing both angles — takes about 60 seconds' : 'This takes about 40–60 seconds'}
         </div>
 
         <div style={{ height: 3, background: '#1a2a1a', borderRadius: 2, overflow: 'hidden', marginBottom: 20 }}>
-          <div style={{ height: '100%', background: '#4ade80', borderRadius: 2, animation: 'foreai-bar 50s linear forwards' }}/>
+          <div style={{ height: '100%', background: '#4ade80', borderRadius: 2, animation: 'foreai-bar 60s linear forwards' }}/>
         </div>
 
         <div style={{ display: 'flex', flexDirection: 'column', gap: 10, textAlign: 'left' }}>
           {[
-            { label: 'Video uploaded', done: isGemini || isExtracting || isClaude },
-            { label: 'Gemini finding swing positions', done: isExtracting || isClaude, active: isGemini },
-            { label: `Extracting ${hasBothAngles ? '16' : '8'} key frames`, done: isClaude, active: isExtracting },
-            { label: 'Claude analyzing each position', done: false, active: isClaude },
+            { label: 'Video uploaded', done: isGemini || isExtracting || isClaude || isSaving },
+            { label: 'Gemini watching your full swing', done: isExtracting || isClaude || isSaving, active: isGemini },
+            { label: `Extracting ${hasBothAngles ? '16' : '8'} swing frames`, done: isClaude || isSaving, active: isExtracting },
+            { label: 'Claude analyzing each position', done: isSaving, active: isClaude },
+            { label: 'Saving frames to your history', done: false, active: isSaving },
           ].map((step, i) => (
             <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
               <div style={{
